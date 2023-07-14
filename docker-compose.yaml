@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command:
+      - "python"
+      - "__main__.py"
+    restart: on-failure
+    depends_on:
+      - redis
+      - db
+  redis:
+    image: redis:7.0.11-alpine
+    restart: on-failure
+    ports:
+      - "6379:6379"
+  db:
+    image: postgres:15-alpine
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: on-failure
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:

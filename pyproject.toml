@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "money-bot"
+version = "0.1.0"
+description = "control your personal finance"
+authors = ["Kamyshin Ivan <ikamyshin@yandex.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+aiogram = "3.0.0b7"
+redis = "^4.6.0"
+python-dotenv = "^1.0.0"
+peewee = "^3.16.2"
+loguru = "^0.7.0"
+psycopg2 = "^2.9.6"
+today = "^0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
