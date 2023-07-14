@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, date
 from typing import Dict, List, Union
+from decimal import Decimal
 
 from loguru import logger
 from peewee import fn, SQL
@@ -332,7 +333,7 @@ def db_get_history_transaction(
     return query
 
 
-def db_delete_transaction(transaction_id: int) -> None:
+def db_delete_transaction(user_dict: Dict[str, int]) -> None:
     """
     Функция удаляет транзакцию по ее идентификатору из БД.
 
@@ -340,8 +341,21 @@ def db_delete_transaction(transaction_id: int) -> None:
     :return:
     """
     try:
-        Transaction.delete_by_id(transaction_id)
-        logger.debug(f'Операцию id-{transaction_id} удалили')
+        with db.atomic():
+            print(user_dict)
+            tg_id = user_dict.get('user_id')
+            transaction_id = user_dict.get('id')
+            summ = float(user_dict.get('summ'))
+
+            user = User.get_or_none(telegram_id=tg_id)
+
+            Transaction.delete_by_id(transaction_id)
+
+            user_balance = Balance.get(Balance.user == user)
+            user_balance.balance -= Decimal(summ)
+            user_balance.save()
+
+            logger.debug(f'Операцию id-{transaction_id} удалили')
     except Exception as e:
         logger.error(f'Ошибка удаления операции в БД: {e}')
 

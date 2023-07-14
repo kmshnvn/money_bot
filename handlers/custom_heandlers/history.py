@@ -61,10 +61,14 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
     transaction_id = message.text[4:]
     transaction = db_get_transaction(transaction_id)
 
-    await state.set_data({'id': transaction_id})
-
     amount = float(transaction.get("amount"))
     summ = amount if amount >= 0 else -amount
+
+    await state.set_data({
+        'id': transaction_id,
+        'user_id': message.chat.id,
+        'summ': amount,
+    })
 
     text = f'Выбрана операция\n\n' \
            f'Дата операции: {transaction["transaction_date"]}\n' \
@@ -84,7 +88,7 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
 @router.message(UserState.delete_transaction, F.text.contains('Удаляем'))
 async def delete_transaction(message: Message, state: FSMContext) -> None:
     user_dict = await state.get_data()
-    db_delete_transaction(user_dict.get('id'))
+    db_delete_transaction(user_dict)
 
     await message.answer(text=f'Удалил', parse_mode='Markdown', reply_markup=main_kb())
     await state.set_state(UserState.default)
