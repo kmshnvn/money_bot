@@ -1,7 +1,7 @@
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.redis import RedisStorage
 
-storage = RedisStorage.from_url('redis://redis:6379/0')
+storage = RedisStorage.from_url('redis://redis:6379/1')
 
 
 class UserState(StatesGroup):

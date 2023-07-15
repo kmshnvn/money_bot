@@ -4,16 +4,18 @@ services:
   app:
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: buildfiles/Dockerfile
     command:
       - "python"
       - "__main__.py"
-    restart: on-failure
+    restart: always
     depends_on:
       - redis
       - db
   redis:
-    image: redis:7.0.11-alpine
+    build:
+      context: .
+      dockerfile: buildfiles/RedisDockerfile
     restart: on-failure
     ports:
       - "6379:6379"
