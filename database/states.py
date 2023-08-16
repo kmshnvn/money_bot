@@ -1,7 +1,18 @@
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio.client import Redis
 
-storage = RedisStorage.from_url('redis://redis:6379/1')
+from config_data.config import REDIS_PASSWORD
+
+redis = Redis(
+    db=3,
+    host="redis",
+    port=6379,
+    password=REDIS_PASSWORD,
+)
+
+# storage = RedisStorage.from_url('redis://redis:6379/10')
+storage = RedisStorage(redis)
 
 
 class UserState(StatesGroup):
@@ -27,4 +38,8 @@ class UserState(StatesGroup):
 
     # Состояния истории
     main_history = State()
+    statistic_history = State()
+    transaction_history = State()
     delete_transaction = State()
+    start_date_history = State()
+    end_date_history = State()

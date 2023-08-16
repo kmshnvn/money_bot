@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, date
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple, Any
 from decimal import Decimal
 
 from loguru import logger
@@ -227,9 +227,34 @@ def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
             Transaction, Category.category_name
         ).join(Category).where(
             Transaction.user == user,
-        ).order_by(-Transaction.transaction_date, Category.category_name).limit(30)
+        ).order_by(-Transaction.id).limit(30)
 
         logger.debug(f'{tg_id} | Получил последние 30 операций пользователя')
+        return query.dicts().execute()
+    except Exception as ex:
+        logger.error(f'{tg_id} | Ошибка при получении истории транзакций: {ex}')
+
+
+def db_get_custom_date_history(
+        tg_id: int, start_date: date, end_date: date
+) -> List[Dict[str, Union[str, int, float]]]:
+    """
+    Функция, получает на вход идентификатор пользователя,
+    начальную дату и конечную дату поиска операций.
+    Возвращает транзакции пользователя за выбранный период
+    """
+    try:
+        user = User.get_or_none(telegram_id=tg_id)
+        query = Transaction.select(
+            Transaction, Category.category_name
+        ).join(Category).where(
+            Transaction.user == user,
+            Transaction.transaction_date.between(
+                start_date, end_date
+            )
+        ).order_by(-Transaction.id)
+
+        logger.debug(f'{tg_id} | Получил операции с {start_date} по {end_date}')
         return query.dicts().execute()
     except Exception as ex:
         logger.error(f'{tg_id} | Ошибка при получении истории транзакций: {ex}')
@@ -291,12 +316,12 @@ def db_get_main_statistic(tg_id: int) -> Dict[str, List[float]]:
 
 def db_get_history_transaction(
         tg_id: int, start_date=None, end_date=None
-) -> Dict[str, List[float]]:
+) -> Tuple[Any, date | Any, date | Any]:
     """
     Функция получает информацию о транзакциях.
     Берет данные за опеределенный системой или пользователем период.
 
-    :param transaction_id:
+    :param:
     :return:
     """
     user = User.get_or_none(telegram_id=tg_id)
@@ -310,6 +335,7 @@ def db_get_history_transaction(
     if end_date is None:
         end_date = today
 
+    print(f'БД {start_date} - {end_date}')
     query = Transaction.select(
         fn.CONCAT(
             fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
@@ -317,32 +343,35 @@ def db_get_history_transaction(
             fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
         ).alias('year_month'),
         fn.SUM(Transaction.amount).alias('amount'),
-        Category.category_name
+        Category.category_name,
     ).join(Category).where(
         Transaction.user == user,
-        Transaction.transaction_date.between(start_date, end_date)
+        Transaction.transaction_date.between(start_date, end_date),
     ).group_by(
         fn.CONCAT(
             fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
             '-',
             fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
         ),
-        Category.category_name
+        Category.category_name,
+    ).order_by(
+        fn.SUM(Transaction.amount).desc(),
     ).dicts().execute()
 
-    return query
+    return query, \
+        date.strftime(start_date, "%d.%m.%Y"), \
+        date.strftime(end_date, "%d.%m.%Y")
 
 
 def db_delete_transaction(user_dict: Dict[str, int]) -> None:
     """
     Функция удаляет транзакцию по ее идентификатору из БД.
 
-    :param transaction_id:
+    :param:
     :return:
     """
     try:
         with db.atomic():
-            print(user_dict)
             tg_id = user_dict.get('user_id')
             transaction_id = user_dict.get('id')
             summ = float(user_dict.get('summ'))

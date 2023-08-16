@@ -19,6 +19,7 @@ db = PostgresqlDatabase(
     port=POSTGRES_PORT,
 )
 
+
 class BaseModel(Model):
     """Базовый класс моделей"""
     class Meta:
@@ -42,7 +43,7 @@ class User(BaseModel):
 
 class Account(BaseModel):
     """
-    Класс Счёта.
+    Класс Счёта
     """
     class Meta:
         table_name = 'account'
@@ -55,6 +56,9 @@ class Account(BaseModel):
 
 
 class Category(BaseModel):
+    """
+    Класс Категорий
+    """
     class Meta:
         table_name = 'category'
 
@@ -68,6 +72,9 @@ class Category(BaseModel):
 
 
 class Transaction(BaseModel):
+    """
+    Класс операций
+    """
     class Meta:
         table_name = 'transaction'
         order_by = 'transaction_date'
@@ -80,6 +87,9 @@ class Transaction(BaseModel):
 
 
 class Balance(BaseModel):
+    """
+    Класс баланса пользователя
+    """
     class Meta:
         table_name = 'balance'
 

@@ -7,6 +7,7 @@ def start_kb() -> ReplyKeyboardMarkup:
     kb.button(text="🛠️Настройки")
     return kb.as_markup(resize_keyboard=True)
 
+
 def main_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="🧮Новая операция")
@@ -107,15 +108,6 @@ def transaction_save_kb() -> ReplyKeyboardMarkup:
 def history_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="📊Статистика")
-    # kb.button(text="🗓️Другой период операций")
     kb.button(text="⬅️Главное меню")
-    kb.adjust(1)
-    return kb.as_markup(resize_keyboard=True)
-
-
-def delete_history_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="💯Удаляем")
-    kb.button(text="⬅️История")
     kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)
