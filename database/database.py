@@ -177,7 +177,7 @@ def db_change_category(
         logger.error(f'{tg_id} | Ошибка при изменении категории: {ex}')
 
 
-def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> None:
+def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> bool:
     """
     Функция создает новую транзакцию для пользователя и сохраняет ее в БД.
 
@@ -205,13 +205,15 @@ def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> None:
                 }
 
                 user_balance = Balance.get(Balance.user == user)
-                user_balance.balance += transaction_summ
+                user_balance.balance += Decimal(transaction_summ)
                 user_balance.save()
 
                 Transaction.insert(transaction).execute()
                 logger.debug(f'{user_dict["id"]} | Записал новую транзакцию в БД')
+        return True
     except Exception as ex:
         logger.error(f'{user_dict["id"]} | Ошибка при создании транзакции: {ex}')
+        return False
 
 
 def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:

@@ -70,40 +70,6 @@ def user_category_kb(category_list: list) -> ReplyKeyboardMarkup:
 
 # Клавиатуры операций
 
-def transaction_main_kb(group_name: str) -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    if group_name == 'Expense':
-        kb.button(text="💰Доход💰")
-    else:
-        kb.button(text="Расход")
-
-    kb.button(text="📆Выбрать другую дату")
-    kb.button(text="⬅️Главное меню")
-    kb.adjust(1)
-
-    return kb.as_markup(resize_keyboard=True)
-
-
-def transaction_descr_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="Без описания")
-    return kb.as_markup(resize_keyboard=True)
-
-
-def transaction_end_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="🧮Новая операция")
-    kb.button(text="⬅️Главное меню")
-    kb.adjust(1)
-    return kb.as_markup(resize_keyboard=True)
-
-
-def transaction_save_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="✅Записать")
-    kb.adjust(1)
-    return kb.as_markup(resize_keyboard=True)
-
 
 def history_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()

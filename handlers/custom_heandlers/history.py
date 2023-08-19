@@ -88,6 +88,8 @@ async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -
 
         if start_date and end_date:
             history = db_get_custom_date_history(callback.message.chat.id, start_date, end_date)
+            start_date = date.strftime(start_date, "%d.%m.%Y")
+            end_date = date.strftime(end_date, "%d.%m.%Y")
             text = create_history_text('', list(history))
             if text == '':
                 full_text = f'Транзакции в периоде с {start_date} по {end_date} отсутствуют'

@@ -16,7 +16,7 @@ services:
     build:
       context: .
       dockerfile: buildfiles/RedisDockerfile
-    restart: on-failure
+    restart: always
     ports:
       - "6379:6379"
   db:

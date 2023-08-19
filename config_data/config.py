@@ -15,6 +15,8 @@ POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD')
 POSTGRES_PORT = os.getenv('POSTGRES_PORT')
 POSTGRES_HOST = os.getenv('POSTGRES_HOST')
 
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+
 
 DEFAULT_COMMANDS = (
     ('start', 'Главное меню'),
@@ -38,4 +40,3 @@ MONTH_NAME = {
     11: 'Ноябрь',
     12: 'Декабрь'
 }
-

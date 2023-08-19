@@ -1,7 +1,7 @@
 from loguru import logger
 from aiogram.filters import Text, Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 from aiogram import F
 
 from handlers.default_heandlers.start import router
@@ -9,6 +9,11 @@ from handlers.default_heandlers.start import router
 
 from database.database import db_create_category, db_get_category, db_change_category
 from database.states import UserState
+from keyboards.inline_keyboards import (
+    user_category_kb,
+    save_category_kb,
+)
+
 from keyboards.reply_keyboards import (
     default_category_kb,
     add_transaction_kb,
@@ -77,7 +82,7 @@ async def category_settings(message: Message, state: FSMContext):
             )
     except Exception as ex:
         logger.error(f'Что-то пошло не так при настройке категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
+        await message.answer('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
 
 
 @router.message(UserState.settings, F.text.contains('Использовать стандартные категории'))
@@ -113,7 +118,7 @@ async def default_category_settings(message: Message, state: FSMContext):
         await state.set_state(UserState.default)
     except Exception as ex:
         logger.error(f'Что-то пошло не так при настройке стандартных категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
+        await message.answer('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
 
 
 @router.message(
@@ -162,7 +167,7 @@ async def add_new_category_settings(message: Message, state: FSMContext):
         print(await state.get_data())
     except Exception as ex:
         logger.error(f'Что-то пошло не так при выборе группы категории: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при выборе группы категории. Скоро меня починят')
+        await message.answer('🤕 Возникла ошибка при выборе группы категории. Скоро меня починят')
 
 
 @router.message(UserState.custom_category, F.text.contains('Готово'))
