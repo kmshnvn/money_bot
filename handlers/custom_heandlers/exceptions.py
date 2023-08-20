@@ -7,6 +7,12 @@ from handlers.default_heandlers.start import router
 
 @router.message(UserState.save_transaction)
 @router.message(UserState.change_transaction_details)
+@router.message(UserState.choose_category_for_change)
+@router.message(UserState.settings)
+@router.message(UserState.custom_category_group)
+@router.message(UserState.save_category)
+@router.message(UserState.delete_category)
+@router.message(UserState.rename_category)
 async def transaction_check_ex(message: Message, state: FSMContext):
     """
     Функция. Отлавливает состояние пользователя и сообщает что ожидает от него

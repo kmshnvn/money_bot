@@ -12,15 +12,14 @@ from database.states import UserState
 from keyboards.inline_keyboards import (
     user_category_kb,
     save_category_kb,
+    exist_category_kb,
+    group_category_kb,
+
 )
 
 from keyboards.reply_keyboards import (
     default_category_kb,
     add_transaction_kb,
-    exist_category_kb,
-    group_category_kb,
-    save_category_kb,
-    user_category_kb,
 )
 
 
@@ -74,7 +73,7 @@ async def category_settings(message: Message, state: FSMContext):
 
             await message.answer(
                 text=f"Настройки категорий.\n"
-                     f"Сейчас у тебя установлены следующие категории трат\n\n"
+                     f"Сейчас у тебя установлены следующие категории:\n\n"
                      f"{text}"
                      f"\nЧто делаем?",
                 parse_mode='Markdown',
@@ -85,6 +84,7 @@ async def category_settings(message: Message, state: FSMContext):
         await message.answer('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
 
 
+# Добавление новых категорий
 @router.message(UserState.settings, F.text.contains('Использовать стандартные категории'))
 async def default_category_settings(message: Message, state: FSMContext):
     """
@@ -107,7 +107,6 @@ async def default_category_settings(message: Message, state: FSMContext):
         }
 
         db_create_category(message.chat.id, default_category)
-
         await message.answer(
             text=f'Отлично, мы настроили категории. '
                  f'В дальнейшем их можно будет редактировать в /settings\n'
@@ -121,12 +120,9 @@ async def default_category_settings(message: Message, state: FSMContext):
         await message.answer('🤕 Возникла ошибка при настройке категорий. Скоро меня починят')
 
 
-@router.message(
-    UserState.settings,
-    F.text.contains("Свои категории") | F.text.contains("Добавить новую")
-)
-@router.message(UserState.save_category, Text('Изменить'))
-async def custom_category_settings(message: Message, state: FSMContext):
+@router.callback_query(UserState.settings, Text('add_new_category'))
+@router.callback_query(UserState.save_category, Text('change_transaction'))
+async def custom_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработка начала настройки своих категорий трат. Пользователь выбирает группу категории.
     """
@@ -134,32 +130,32 @@ async def custom_category_settings(message: Message, state: FSMContext):
         logger.info('Начинаем настройку своих категорий. Выбираем группы категории')
 
         await state.set_state(UserState.custom_category_group)
-
-        await message.answer(
+        await callback.message.edit_text(
             f'К чему относится категория?',
             reply_markup=group_category_kb(),
         )
     except Exception as ex:
         logger.error(f'Что-то пошло не так при начале настройки своих категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при начале настройки категорий. Скоро меня починят')
+        await callback.message.edit_text(
+            '🤕 Возникла ошибка при начале настройки категорий. Скоро меня починят'
+        )
 
 
-@router.message(UserState.custom_category_group, F.text.contains("Доход") | F.text.contains("Расход"))
-async def add_new_category_settings(message: Message, state: FSMContext):
+@router.callback_query(UserState.custom_category_group, Text(text=["income", "expense"]))
+async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработка выбора группы категории и ожидание ввода названия новой категории.
     """
     try:
         logger.info('Ловим группу и ждем названия категории')
 
-        if message.text == "Доход":
+        if callback.data == "income":
             await state.update_data({'group': 'Income'})
         else:
             await state.update_data({'group': 'Expense'})
 
-        await message.answer(
+        await callback.message.edit_text(
             f'Введите название категории',
-            reply_markup=ReplyKeyboardRemove(),
         )
 
         await state.set_state(UserState.custom_category)
@@ -167,31 +163,28 @@ async def add_new_category_settings(message: Message, state: FSMContext):
         print(await state.get_data())
     except Exception as ex:
         logger.error(f'Что-то пошло не так при выборе группы категории: {ex}')
-        await message.answer('🤕 Возникла ошибка при выборе группы категории. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при выборе группы категории. Скоро меня починят')
 
 
-@router.message(UserState.custom_category, F.text.contains('Готово'))
-@router.message(UserState.custom_category_group, F.text.contains('Готово'))
-async def category_settings_complete(message: Message, state: FSMContext):
+@router.callback_query(UserState.custom_category_group, Text("ready"))
+async def category_settings_complete(callback: CallbackQuery, state: FSMContext):
     """
     Завершение настройки категорий и переход к созданию операции.
     """
     try:
-        logger.info('Категории настроены. Выход')
+        logger.info('Категории настроены.')
 
         await state.set_state(UserState.default)
 
-        await message.answer(
-            f'Отлично, мы настроили категории. '
-            f'В дальнейшем их можно будет редактировать в /settings\n'
-            f'Сейчас создадим свою первую операцию',
+        await callback.message.edit_text(
+            f'Отлично, категории настроены',
             parse_mode='Markdown',
-            reply_markup=add_transaction_kb()
         )
+        await category_settings(callback.message, state)
 
     except Exception as ex:
         logger.error(f'Что-то пошло не так при завершении настройки категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при завершении настройки категорий. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при завершении настройки категорий. Скоро меня починят')
 
 
 @router.message(UserState.custom_category)
@@ -244,8 +237,8 @@ async def add_new_category_settings(message: Message, state: FSMContext):
         await message.edit_text('🤕 Возникла ошибка при добавлении новой категории. Скоро меня починят')
 
 
-@router.message(UserState.save_category, F.text.contains('Записать'))
-async def add_new_category_settings(message: Message, state: FSMContext):
+@router.callback_query(UserState.save_category, Text('add_transaction'))
+async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик сохранения новой пользовательской категории в базе данных.
     """
@@ -261,27 +254,31 @@ async def add_new_category_settings(message: Message, state: FSMContext):
             new_category_list = category_dict[group]
             new_category_list.append(new_category[group].title())
 
-            db_create_category(message.chat.id, new_category)
+            db_create_category(callback.message.chat.id, new_category)
             await state.update_data({group: new_category_list})
         else:
-            db_create_category(message.chat.id, category_dict)
+            db_create_category(callback.message.chat.id, category_dict)
 
-        await message.answer(
-            f'Сохранил. Теперь следующая. \nК чему относится категория?',
+        await callback.message.edit_text(
+            f'✅Сохранил',
+            parse_mode='Markdown',
+        )
+        await callback.message.answer(
+            f'Теперь следующая. \nК чему относится категория?',
             parse_mode='Markdown',
             reply_markup=group_category_kb()
         )
         await state.set_state(UserState.custom_category_group)
     except Exception as ex:
         logger.error(f'Что-то пошло не так при сохранении новой категории: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при сохранении новой категории. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при сохранении новой категории. Скоро меня починят')
 
 
-@router.message(
+@router.callback_query(
     UserState.settings,
-    F.text.contains('Удалить категорию') | F.text.contains('Изменить категорию')
+    Text(['delete_category', 'change_category_name'])
 )
-async def default_category_settings(message: Message, state: FSMContext):
+async def default_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для редактирования категорий пользователя.
     """
@@ -297,51 +294,41 @@ async def default_category_settings(message: Message, state: FSMContext):
 
         await state.update_data({'all_categories': category_list})
 
-        await message.answer(
+        await callback.message.edit_text(
             text=f'Выберите категорию для редактирования',
             parse_mode='Markdown',
             reply_markup=user_category_kb(category_list)
         )
-
-        if message.text == 'Удалить категорию':
+        if callback.data == 'delete_category':
             await state.set_state(UserState.delete_category)
         else:
             await state.set_state(UserState.rename_category)
-
     except Exception as ex:
         logger.error(f'Что-то пошло не так при редактировании категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при редактировании категорий. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при редактировании категорий. Скоро меня починят')
 
 
-@router.message(UserState.rename_category)
-async def default_category_settings(message: Message, state: FSMContext):
+@router.callback_query(
+    UserState.rename_category, Text(startswith='transaction_category:')
+)
+async def default_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для редактирования категорий пользователя.
     """
     try:
         logger.info('Изменяем категорию')
 
-        user_dict = await state.get_data()
-        categories = user_dict['all_categories']
+        category = callback.data.split(':')[1]
+        await callback.message.edit_text(
+            text=f'Напиши новое название для категории. Смайлики приветствуются🤩',
+            parse_mode='Markdown',
+        )
 
-        if message.text not in categories:
-            await message.answer(
-                text=f'Такой категории нет, выбери категорию из списка',
-                parse_mode='Markdown',
-                reply_markup=user_category_kb(categories)
-            )
-        else:
-            await message.answer(
-                text=f'Напиши новое название для категории. Смайлики приветствуются🤩',
-                parse_mode='Markdown',
-                reply_markup=user_category_kb(categories)
-            )
-
-            await state.update_data({'last_name': message.text})
-            await state.set_state(UserState.edit_category)
+        await state.update_data({'last_name': category})
+        await state.set_state(UserState.edit_category)
     except Exception as ex:
         logger.error(f'Что-то пошло не так при редактировании категорий: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при редактировании категорий. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при редактировании категорий. Скоро меня починят')
 
 
 @router.message(UserState.edit_category)
@@ -361,7 +348,7 @@ async def default_category_settings(message: Message, state: FSMContext):
         )
 
         await message.answer(
-            text=f'Категорию обновил с {user_dict["last_name"]} на {message.text}',
+            text=f'Категорию обновил с *{user_dict["last_name"]}* на *{message.text}*',
             parse_mode='Markdown',
         )
 
@@ -371,25 +358,27 @@ async def default_category_settings(message: Message, state: FSMContext):
         await message.edit_text('🤕 Возникла ошибка при изменении названия категории. Скоро меня починят')
 
 
-@router.message(UserState.delete_category)
-async def delete_category(message: Message, state: FSMContext):
+@router.callback_query(
+    UserState.delete_category, Text(startswith='transaction_category:')
+)
+async def delete_category(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для удаления категории пользователя.
     """
     try:
         logger.info('Удаляем категорию')
-
+        category = callback.data.split(':')[1]
         db_change_category(
-            tg_id=message.chat.id,
-            category_name=message.text,
+            tg_id=callback.message.chat.id,
+            category_name=category,
         )
 
-        await message.answer(
-            text=f'Категория *{message.text}* удалена',
+        await callback.message.edit_text(
+            text=f'Категория *{category}* удалена',
             parse_mode='Markdown',
         )
 
-        await category_settings(message, state)
+        await category_settings(callback.message, state)
     except Exception as ex:
         logger.error(f'Что-то пошло не так при удалении категории: {ex}')
-        await message.edit_text('🤕 Возникла ошибка при удалении категории. Скоро меня починят')
+        await callback.message.edit_text('🤕 Возникла ошибка при удалении категории. Скоро меня починят')

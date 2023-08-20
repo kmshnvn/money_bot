@@ -24,6 +24,7 @@ class UserState(StatesGroup):
     custom_category_group = State()
     save_category = State()
     edit_category = State()
+    choose_category_for_change = State()
     rename_category = State()
     delete_category = State()
 

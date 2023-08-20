@@ -26,17 +26,6 @@ def default_category_kb() -> ReplyKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
-def exist_category_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="Добавить новую")
-    kb.button(text="Удалить категорию")
-    kb.button(text="Изменить категорию")
-    kb.button(text="⬅️Главное меню")
-    kb.button(text="🧮Новая операция")
-    kb.adjust(1, 2, 2)
-    return kb.as_markup(resize_keyboard=True)
-
-
 def save_category_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="Записать")
@@ -45,13 +34,7 @@ def save_category_kb() -> ReplyKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
-def group_category_kb() -> ReplyKeyboardMarkup:
-    kb = ReplyKeyboardBuilder()
-    kb.button(text="Доход")
-    kb.button(text="Расход")
-    kb.button(text="Готово")
-    kb.adjust(1)
-    return kb.as_markup(resize_keyboard=True)
+
 
 
 def add_transaction_kb() -> ReplyKeyboardMarkup:

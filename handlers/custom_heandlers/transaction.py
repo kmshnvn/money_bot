@@ -516,6 +516,12 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             await callback.message.edit_text(
                 text=(
                     f'Операцию записал✅\n\n'
+                ),
+                parse_mode='Markdown',
+            )
+
+            await callback.message.answer(
+                text=(
                     f'Записываю новую *расходную операцию.*\n'
                     f'Дата - Сегодня\n\n'
                     f'Сколько денег потратили?'

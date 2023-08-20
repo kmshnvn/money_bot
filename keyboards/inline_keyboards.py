@@ -111,7 +111,7 @@ def user_category_kb(category_list: list) -> InlineKeyboardMarkup:
     #     text='⬅️Назад',
     #     callback_data=f"back")
     # )
-    kb.adjust(3)
+    kb.adjust(2)
     return kb.as_markup()
 
 
@@ -175,4 +175,39 @@ def change_transaction_details_kb() -> InlineKeyboardMarkup:
         callback_data="back")
     )
     kb.adjust(2)
+    return kb.as_markup()
+
+
+def exist_category_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(
+        text='Добавить новую',
+        callback_data="add_new_category")
+    )
+    kb.add(InlineKeyboardButton(
+        text='Удалить категорию',
+        callback_data="delete_category")
+    )
+    kb.add(InlineKeyboardButton(
+        text='Изменить категорию',
+        callback_data="change_category_name")
+    )
+    kb.adjust(1, 2)
+    return kb.as_markup()
+
+def group_category_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(
+        text='Доход',
+        callback_data="income")
+    )
+    kb.add(InlineKeyboardButton(
+        text='Расход',
+        callback_data="expense")
+    )
+    kb.add(InlineKeyboardButton(
+        text='В настройки🛠️',
+        callback_data="ready")
+    )
+    kb.adjust(2, 1)
     return kb.as_markup()
