@@ -33,5 +33,4 @@ async def transaction_category_ex(message: Message, state: FSMContext):
         f'🔸100\n'
         f'🔸100.00\n'
         f'🔸100,00\n',
-        parse_mode='Markdown',
     )

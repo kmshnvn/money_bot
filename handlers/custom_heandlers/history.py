@@ -46,7 +46,6 @@ async def history(message: Message, state: FSMContext) -> None:
                 f'Если нажать на кнопку 📊*Статисика*, '
                 f'то сможешь посмотреть свои обобщенные траты за различный период '
                 f'и понять куда уходит больше всего денег',
-                parse_mode='Markdown',
                 reply_markup=main_history_inline_kb()
             )
 
@@ -68,7 +67,6 @@ async def callback_history(callback: CallbackQuery, state: FSMContext) -> None:
             f'Если нажать на кнопку 📊*Статисика*, '
             f'то сможешь посмотреть свои обобщенные траты за различный период '
             f'и понять куда уходит больше всего денег',
-            parse_mode='Markdown',
             reply_markup=main_history_inline_kb()
         )
 
@@ -103,7 +101,6 @@ async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -
 
         await callback.message.edit_text(
             f'{full_text}',
-            parse_mode='Markdown',
             reply_markup=transaction_history()
         )
     except Exception as ex:
@@ -141,7 +138,6 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
 
         await message.answer(
             f'{text}',
-            parse_mode='Markdown',
             reply_markup=delete_history_kb()
         )
 
@@ -186,7 +182,6 @@ async def month_statistic(callback: CallbackQuery, state: FSMContext) -> None:
 
         await callback.message.edit_text(
             text=f'История с {start_date} по {end_date}:\n{text}',
-            parse_mode='Markdown',
             reply_markup=change_date()
         )
         await state.set_state(UserState.statistic_history)
@@ -247,7 +242,6 @@ async def process_simple_calendar_history(
             if new_date < start_date:
                 start_date, new_date = new_date, start_date
                 await state.update_data({'start_date': start_date, 'end_date': new_date})
-                print(f'поменял данные {start_date}, {new_date}')
             else:
                 await state.update_data({'end_date': new_date})
 
@@ -256,7 +250,6 @@ async def process_simple_calendar_history(
             )
 
             user_state = user_dict.get('user_state')
-            print(user_state)
             if user_state == 'UserState:transaction_history':
                 await user_transaction_history(callback_query, state)
             elif user_state == 'UserState:statistic_history':
@@ -305,7 +298,6 @@ async def month_custom_date_statistic(message: Message, state: FSMContext) -> No
         text = text_of_stat(history_list)
         await message.edit_text(
             text=f'История с {start_date} по {end_date}:\n{text}',
-            parse_mode='Markdown',
             reply_markup=change_date()
         )
         await state.set_state(UserState.statistic_history)

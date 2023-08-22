@@ -34,7 +34,6 @@ async def bot_start(message: Message, state: FSMContext) -> None:
                  f"\nЯ бот, который поможет тебе держать финансы под контролем\n"
                  f"\nЧтобы начать работать нужно сделать несколько настроек\n"
                  f"\nНачнем с категорий трат",
-            parse_mode='Markdown',
             reply_markup=start_kb()
         )
     else:
@@ -46,7 +45,6 @@ async def bot_start(message: Message, state: FSMContext) -> None:
         await message.answer(
             text=f"{message.from_user.first_name}, вот твоя статистика:\n"
                  f"{text}",
-            parse_mode='Markdown',
             reply_markup=main_kb()
         )
 
@@ -82,9 +80,9 @@ def get_statistic_text(user_transactions) -> str:
             result = income + expense
 
             if income > 0:
-                text += f'Доход: {income} ₽\n'
+                text += f'Доход: {round(income, 2)} ₽\n'
             if expense < 0:
-                text += f'Расходы: {expense} ₽\n'
-            text += f'Всего: {result} ₽\n'
+                text += f'Расходы: {round(expense, 2)} ₽\n'
+            text += f'Всего: {round(result, 2)} ₽\n'
 
     return text

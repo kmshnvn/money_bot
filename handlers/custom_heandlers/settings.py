@@ -52,7 +52,6 @@ async def category_settings(message: Message, state: FSMContext):
                      f"\nКрасота💆‍"
                      f"\n\n*Категории дохода:*"
                      f"\nЗарплата💰",
-                parse_mode='Markdown',
                 reply_markup=default_category_kb(),
             )
         else:
@@ -76,7 +75,6 @@ async def category_settings(message: Message, state: FSMContext):
                      f"Сейчас у тебя установлены следующие категории:\n\n"
                      f"{text}"
                      f"\nЧто делаем?",
-                parse_mode='Markdown',
                 reply_markup=exist_category_kb(),
             )
     except Exception as ex:
@@ -111,7 +109,6 @@ async def default_category_settings(message: Message, state: FSMContext):
             text=f'Отлично, мы настроили категории. '
                  f'В дальнейшем их можно будет редактировать в /settings\n'
                  f'Сейчас создадим свою первую операцию',
-            parse_mode='Markdown',
             reply_markup=add_transaction_kb()
         )
         await state.set_state(UserState.default)
@@ -160,7 +157,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
 
         await state.set_state(UserState.custom_category)
 
-        print(await state.get_data())
     except Exception as ex:
         logger.error(f'Что-то пошло не так при выборе группы категории: {ex}')
         await callback.message.edit_text('🤕 Возникла ошибка при выборе группы категории. Скоро меня починят')
@@ -178,7 +174,6 @@ async def category_settings_complete(callback: CallbackQuery, state: FSMContext)
 
         await callback.message.edit_text(
             f'Отлично, категории настроены',
-            parse_mode='Markdown',
         )
         await category_settings(callback.message, state)
 
@@ -208,7 +203,6 @@ async def add_new_category_settings(message: Message, state: FSMContext):
                 await message.answer(
                     f'Категория уже есть\n'
                     f'Нужно ввести другую',
-                    parse_mode='Markdown',
                 )
             elif category.title() in data[another_group]:
                 text_another_name = 'дохода' if another_group == 'Income' else 'расходных операций'
@@ -217,7 +211,6 @@ async def add_new_category_settings(message: Message, state: FSMContext):
                     f'Категория уже есть в категориях {text_another_name}\n'
                     f'Добавьте смайлик ➕,➖, (Д), (Р) или любое другое обозначение, '
                     f'чтобы можно было легко отличить их',
-                    parse_mode='Markdown',
                 )
             else:
                 await state.update_data({'new_category': {group: category}})
@@ -227,7 +220,6 @@ async def add_new_category_settings(message: Message, state: FSMContext):
                     f'Проверим:\n'
                     f'Категория - *{group_name}*\n'
                     f'Название - *{message.text}*\n',
-                    parse_mode='Markdown',
                     reply_markup=save_category_kb()
                 )
                 await state.set_state(UserState.save_category)
@@ -261,11 +253,9 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             f'✅Сохранил',
-            parse_mode='Markdown',
         )
         await callback.message.answer(
             f'Теперь следующая. \nК чему относится категория?',
-            parse_mode='Markdown',
             reply_markup=group_category_kb()
         )
         await state.set_state(UserState.custom_category_group)
@@ -296,7 +286,6 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             text=f'Выберите категорию для редактирования',
-            parse_mode='Markdown',
             reply_markup=user_category_kb(category_list)
         )
         if callback.data == 'delete_category':
@@ -321,7 +310,6 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
         category = callback.data.split(':')[1]
         await callback.message.edit_text(
             text=f'Напиши новое название для категории. Смайлики приветствуются🤩',
-            parse_mode='Markdown',
         )
 
         await state.update_data({'last_name': category})
@@ -349,7 +337,6 @@ async def default_category_settings(message: Message, state: FSMContext):
 
         await message.answer(
             text=f'Категорию обновил с *{user_dict["last_name"]}* на *{message.text}*',
-            parse_mode='Markdown',
         )
 
         await category_settings(message, state)
@@ -375,7 +362,6 @@ async def delete_category(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             text=f'Категория *{category}* удалена',
-            parse_mode='Markdown',
         )
 
         await category_settings(callback.message, state)

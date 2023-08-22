@@ -8,7 +8,7 @@ from config_data.config import BOT_TOKEN, DEFAULT_COMMANDS
 
 
 async def main():
-    bot = Bot(token=BOT_TOKEN, parse_mode='HTML')
+    bot = Bot(token=BOT_TOKEN, parse_mode='Markdown')
 
     await bot.set_my_commands(
         [BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS]

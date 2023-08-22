@@ -357,6 +357,11 @@ def db_get_history_transaction(
         ),
         Category.category_name,
     ).order_by(
+        fn.CONCAT(
+            fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
+            '-',
+            fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
+        ),
         fn.SUM(Transaction.amount).desc(),
     ).dicts().execute()
 

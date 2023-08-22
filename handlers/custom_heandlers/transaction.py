@@ -67,7 +67,6 @@ async def new_transaction(message: Message, state: FSMContext):
                      f"\nКрасота💆‍"
                      f"\n\n*Категории дохода:*"
                      f"\nЗарплата💰",
-                parse_mode='Markdown',
                 reply_markup=default_category_kb(),
             )
             await state.set_state(UserState.settings)
@@ -95,7 +94,6 @@ async def new_transaction(message: Message, state: FSMContext):
                         f'Дата - Сегодня\n\n'
                         f'Сколько денег потратили?'
                 ),
-                parse_mode='Markdown',
                 reply_markup=transaction_main_kb(default_group)
             )
             await state.set_state(UserState.transaction_summ)
@@ -107,7 +105,9 @@ async def new_transaction(message: Message, state: FSMContext):
         )
 
 
-@router.callback_query(UserState.transaction_summ, Text(text=['income', 'expense']))
+@router.callback_query(
+    UserState.transaction_summ, Text(text=['income', 'expense', 'change_for_today_date'])
+)
 async def transaction_summ(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для уточнения суммы операции.
@@ -115,16 +115,23 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
     try:
         logger.debug(f'Пользователь {callback.message.chat.id}. Уточняем сумму операции')
 
+        not_today = True
+        if callback.data == 'change_for_today_date':
+            await state.update_data({'date': str(date.today())})
         group_name = callback.data.title()
 
         user_dict = await state.get_data()
-        print(user_dict)
+
         user_date = user_dict.get('date')
         balance = user_dict.get('balance')
-        await state.update_data({'group': group_name})
+        if group_name not in ['Income', 'Expense']:
+            group_name = user_dict.get('group')
+        else:
+            await state.update_data({'group': group_name})
 
         if user_date == str(date.today()):
             user_date = 'Сегодня'
+            not_today = False
 
         text = ''
         if group_name == 'Expense':
@@ -135,8 +142,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
                     f'Дата - *{user_date}*\n\n'
                     f'Сколько денег потратили?'
                 ),
-                parse_mode='Markdown',
-                reply_markup=transaction_main_kb(group_name)
+                reply_markup=transaction_main_kb(group_name, not_today)
             )
         else:
             await callback.message.edit_text(
@@ -146,8 +152,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
                     f'Дата - *{user_date}*\n\n'
                     f'Сколько денег получили?'
                 ),
-                parse_mode='Markdown',
-                reply_markup=transaction_main_kb(group_name)
+                reply_markup=transaction_main_kb(group_name, not_today)
             )
 
     except Exception as ex:
@@ -228,7 +233,6 @@ async def transaction_category(message: Message, state: FSMContext):
             f'В какой категории была операция?\n'
             f'\nЕсли операции нет и нужно добавить - '
             f'просто введи новую категорию',
-            parse_mode='Markdown',
             reply_markup=user_category_kb(user_category)
         )
         await state.set_state(UserState.transaction_category)
@@ -240,7 +244,6 @@ async def transaction_category(message: Message, state: FSMContext):
             f'🔸100\n'
             f'🔸100.00\n'
             f'🔸100,00\n',
-            parse_mode='Markdown',
         )
 
 
@@ -266,7 +269,6 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
             f'В какой категории была операция?\n'
             f'\nЕсли операции нет и нужно добавить - '
             f'просто введи новую категорию',
-            parse_mode='Markdown',
             reply_markup=user_category_kb(user_category)
         )
         user_state = await state.get_state()
@@ -301,7 +303,6 @@ async def transaction_description(message: Message, state: FSMContext):
                 f'\nГруппа категории: {group_name}\n'
                 f'Категория: {category}\n'
                 f'\nДобавим категорию',
-                parse_mode='Markdown',
                 reply_markup=transaction_save_kb()
             )
             await state.set_state(UserState.transaction_new_category)
@@ -313,7 +314,6 @@ async def transaction_description(message: Message, state: FSMContext):
                 await message.answer(
                     f'Такая категория уже есть в вашем списке\n'
                     f'Добавьте описание операции (необязательно)',
-                    parse_mode='Markdown',
                     reply_markup=transaction_descr_kb()
                 )
 
@@ -343,7 +343,6 @@ async def transaction_callback_description(callback: CallbackQuery, state: FSMCo
         else:
             await callback.message.edit_text(
                 f'Добавьте описание операции (необязательно)',
-                parse_mode='Markdown',
                 reply_markup=transaction_descr_kb()
             )
 
@@ -369,15 +368,17 @@ async def transaction_new_category(callback: CallbackQuery, state: FSMContext):
         group_name = 'Expense' if user_dict['group'] == 'Expense' else 'Income'
         new_category = {group_name: user_dict['category']}
 
+        category_list = user_dict.get(group_name)
+        category_list.append(new_category[group_name])
+        await state.update_data({group_name: category_list})
+
         db_create_category(callback.message.chat.id, new_category)
-        print(user_dict.get('user_state'))
         if user_dict.get('user_state') == 'UserState:change_transaction_details':
             await transaction_check_without_descr(callback.message, state)
         else:
             await callback.message.edit_text(
                 f'Записал новую категорию {user_dict["category"]}\n\n'
                 f'Добавьте описание операции (необязательно)',
-                parse_mode='Markdown',
                 reply_markup=transaction_descr_kb()
             )
 
@@ -408,7 +409,6 @@ async def callback_transaction_check(callback: CallbackQuery, state: FSMContext)
             f'Сумма - *{user_dict["summ"]}*\n'
             f'Категория - *{user_dict["category"]}*\n'
             f'Описание - {text_descr}\n',
-            parse_mode='Markdown',
             reply_markup=save_category_kb()
         )
         await state.set_state(UserState.save_transaction)
@@ -436,7 +436,6 @@ async def transaction_check_without_descr(message: Message, state: FSMContext):
             f'Сумма - *{user_dict["summ"]}*\n'
             f'Категория - *{user_dict["category"]}*\n'
             f'Описание - {text_descr}\n',
-            parse_mode='Markdown',
             reply_markup=save_category_kb()
         )
         await state.set_state(UserState.save_transaction)
@@ -467,7 +466,6 @@ async def transaction_check(message: Message, state: FSMContext):
             f'Сумма - *{user_dict["summ"]}*\n'
             f'Категория - *{user_dict["category"]}*\n'
             f'Описание - *{description}*\n',
-            parse_mode='Markdown',
             reply_markup=save_category_kb()
         )
         await state.set_state(UserState.save_transaction)
@@ -496,7 +494,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             'category': user_dict['category'],
             'descr': user_dict['descr'],
         }
-        print(transaction_dict)
 
         if db_create_transaction(transaction_dict):
 
@@ -504,7 +501,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             default_group = 'Expense'
 
             await state.update_data({
-                'date': str(date.today()),
                 'group': default_group,
                 'summ': '',
                 'category': '',
@@ -516,18 +512,30 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             await callback.message.edit_text(
                 text=(
                     f'Операцию записал✅\n\n'
+                    f'Дата - *{user_dict["date"]}*\n'
+                    f'Сумма - *{user_dict["summ"]}*\n'
+                    f'Категория - *{user_dict["category"]}*\n'
+                    f'Описание - *{user_dict["descr"]}*\n'
                 ),
-                parse_mode='Markdown',
             )
+
+            user_dict = await state.get_data()
+
+            if user_dict.get('date') == str(date.today()):
+                str_date = 'Сегодня'
+                not_today = False
+            else:
+                str_date = user_dict.get('date')
+                not_today = True
+
 
             await callback.message.answer(
                 text=(
                     f'Записываю новую *расходную операцию.*\n'
-                    f'Дата - Сегодня\n\n'
+                    f'Дата - {str_date}\n\n'
                     f'Сколько денег потратили?'
                 ),
-                parse_mode='Markdown',
-                reply_markup=transaction_main_kb(default_group)
+                reply_markup=transaction_main_kb(default_group, not_today)
             )
             await state.set_state(UserState.transaction_summ)
         else:
@@ -535,7 +543,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                 text=(
                     f'🤕 Произошла ошибка при записи транзакции. Мы скоро все исправим!'
                 ),
-                parse_mode='Markdown',
             )
             await state.set_state(UserState.transaction_summ)
 
@@ -560,7 +567,6 @@ async def callback_change_unwritten_category(callback: CallbackQuery, state: FSM
         text=(
             f'Что будем менять?'
         ),
-        parse_mode='Markdown',
         reply_markup=change_transaction_details_kb(),
     )
 
@@ -575,7 +581,6 @@ async def callback_change_unwritten_category(callback: CallbackQuery, state: FSM
 
     await callback.message.edit_text(
         text=f'Введите новую сумму',
-        parse_mode='Markdown',
     )
     await state.set_state(UserState.change_transaction_details_summ)
 
@@ -603,7 +608,6 @@ async def transaction_category(message: Message, state: FSMContext):
             f'🔸100\n'
             f'🔸100.00\n'
             f'🔸100,00\n',
-            parse_mode='Markdown',
         )
 
 
@@ -615,6 +619,5 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     logger.debug(f'Пользователь {callback.message.chat.id} - Уточняем новое описание операии')
     await callback.message.edit_text(
         text=f'Введите описание операции',
-        parse_mode='Markdown',
     )
     await state.set_state(UserState.change_transaction_details_descr)

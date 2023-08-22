@@ -80,7 +80,7 @@ def new_transaction() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def transaction_main_kb(group_name: str) -> InlineKeyboardMarkup:
+def transaction_main_kb(group_name: str, not_today: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     if group_name == 'Expense':
         kb.add(InlineKeyboardButton(
@@ -92,11 +92,17 @@ def transaction_main_kb(group_name: str) -> InlineKeyboardMarkup:
             text="Нет, это расход",
             callback_data="expense")
         )
+
     kb.add(InlineKeyboardButton(
         text="📆Выбрать другую дату",
         callback_data="change_transaction_date")
     )
-    kb.adjust(1)
+    if not_today:
+        kb.add(InlineKeyboardButton(
+            text="⏱️Сегодня",
+            callback_data="change_for_today_date")
+        )
+    kb.adjust(1, 2)
     return kb.as_markup()
 
 
