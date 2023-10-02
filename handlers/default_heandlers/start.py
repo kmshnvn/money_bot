@@ -11,8 +11,9 @@ from keyboards.reply_keyboards import main_kb, start_kb
 
 router = Router()
 
-@router.message(Command('start'))
-@router.message(F.text.contains('Главное меню'))
+
+@router.message(Command("start"))
+@router.message(F.text.contains("Главное меню"))
 async def bot_start(message: Message, state: FSMContext) -> None:
     """
     Функция, приветствует пользователя.
@@ -21,51 +22,52 @@ async def bot_start(message: Message, state: FSMContext) -> None:
     Создает БД, если такого пользователя не было раньше
     """
 
-    logger.info(f'{message.chat.id} - команда start')
+    logger.info(f"{message.chat.id} - команда start")
 
     if not User.get_or_none(telegram_id=message.from_user.id):
-        user = User.create(username=message.from_user.full_name, telegram_id=message.chat.id)
+        user = User.create(
+            username=message.from_user.full_name, telegram_id=message.chat.id
+        )
         account = Account.create(user=user)
         Balance.create(user=user, account=account)
-        logger.info('Создал БД пользователя')
+        logger.info("Создал БД пользователя")
 
         await message.answer(
             text=f"Привет, {message.from_user.first_name}!\n"
-                 f"\nЯ бот, который поможет тебе держать финансы под контролем\n"
-                 f"\nЧтобы начать работать нужно сделать несколько настроек\n"
-                 f"\nНачнем с категорий трат",
-            reply_markup=start_kb()
+            f"\nЯ бот, который поможет тебе держать финансы под контролем\n"
+            f"\nЧтобы начать работать нужно сделать несколько настроек\n"
+            f"\nНачнем с категорий трат",
+            reply_markup=start_kb(),
         )
     else:
-        logger.info('Такой id уже есть. Базы не стал создавать')
+        logger.info("Такой id уже есть. Базы не стал создавать")
 
         user_transactions = db_get_main_statistic(message.chat.id)
         text = get_statistic_text(user_transactions)
 
         await message.answer(
-            text=f"{message.from_user.first_name}, вот твоя статистика:\n"
-                 f"{text}",
-            reply_markup=main_kb()
+            text=f"{message.from_user.first_name}, вот твоя статистика:\n" f"{text}",
+            reply_markup=main_kb(),
         )
 
     await state.set_state(UserState.default)
 
 
 def get_statistic_text(user_transactions) -> str:
-    text = ''
+    text = ""
     for key, value in user_transactions.items():
-        period = ''
-        if key == 'today':
-            period = 'За сегодня'
-        elif key == 'week':
-            period = 'С начала недели'
-        elif key == 'month':
-            period = 'С начала месяца'
+        period = ""
+        if key == "today":
+            period = "За сегодня"
+        elif key == "week":
+            period = "С начала недели"
+        elif key == "month":
+            period = "С начала месяца"
 
-        text += f'\n🔹*{period}*\n\n'
+        text += f"\n🔹*{period}*\n\n"
 
         if not value:
-            text += 'Операций не было😛\n'
+            text += "Операций не было😛\n"
         else:
             income = 0
             expense = 0
@@ -80,9 +82,9 @@ def get_statistic_text(user_transactions) -> str:
             result = income + expense
 
             if income > 0:
-                text += f'Доход: {round(income, 2)} ₽\n'
+                text += f"Доход: {round(income, 2)} ₽\n"
             if expense < 0:
-                text += f'Расходы: {round(expense, 2)} ₽\n'
-            text += f'Всего: {round(result, 2)} ₽\n'
+                text += f"Расходы: {round(expense, 2)} ₽\n"
+            text += f"Всего: {round(result, 2)} ₽\n"
 
     return text

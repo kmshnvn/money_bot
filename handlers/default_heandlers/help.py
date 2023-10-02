@@ -10,8 +10,8 @@ from database.states import UserState
 router = Router()
 
 
-@router.message(Command('help'))
-@router.message(F.text.contains('Помощь'))
+@router.message(Command("help"))
+@router.message(F.text.contains("Помощь"))
 async def bot_help(message: Message, state: FSMContext) -> None:
     """
     Функция, дает справочную информацию по работе бота
@@ -20,10 +20,8 @@ async def bot_help(message: Message, state: FSMContext) -> None:
 
     """
     await state.set_state(UserState.default)
-    logger.info(f'{message.chat.id} - команда help')
-    text = [f'/{command} - {desk}' for command, desk in DEFAULT_COMMANDS]
+    logger.info(f"{message.chat.id} - команда help")
+    text = [f"/{command} - {desk}" for command, desk in DEFAULT_COMMANDS]
     await message.answer(
-        'Я бот, который поможет тебе вести твои финансы\n\n'
-        + '\n'.join(text)
+        "Я бот, который поможет тебе вести твои финансы\n\n" + "\n".join(text)
     )
-

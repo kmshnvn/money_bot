@@ -34,9 +34,6 @@ def save_category_kb() -> ReplyKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
-
-
-
 def add_transaction_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="🧮Новая операция")

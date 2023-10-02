@@ -26,9 +26,9 @@ def start_table(name: str, tg_id: int) -> None:
             user = User.create(username=name, telegram_id=tg_id)
             account = Account.create(user=user)
             Balance.create(user=user, account=account)
-            logger.debug(f'{tg_id} | Создание стартовых полей пользователя')
+            logger.debug(f"{tg_id} | Создание стартовых полей пользователя")
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при создании таблицы: {ex}')
+        logger.error(f"{tg_id} | Ошибка при создании таблицы: {ex}")
 
 
 def db_get_balance(tg_id: int) -> Union[float, None]:
@@ -43,14 +43,16 @@ def db_get_balance(tg_id: int) -> Union[float, None]:
         user = User.get_or_none(telegram_id=tg_id)
         query = Balance.select().where(Balance.user == user)
         for string in query.dicts().execute():
-            logger.debug(f'{tg_id} | Получили баланс пользователя')
-            return string['balance']
+            logger.debug(f"{tg_id} | Получили баланс пользователя")
+            return string["balance"]
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при получении баланса из БД: {ex}')
+        logger.error(f"{tg_id} | Ошибка при получении баланса из БД: {ex}")
         return None
 
 
-def db_create_category(tg_id: int, category_dict: Dict[str, Union[List[str], str]]) -> None:
+def db_create_category(
+    tg_id: int, category_dict: Dict[str, Union[List[str], str]]
+) -> None:
     """
     Функция создает новые категории для пользователя и сохраняет их в БД.
 
@@ -60,50 +62,58 @@ def db_create_category(tg_id: int, category_dict: Dict[str, Union[List[str], str
     """
     try:
         with db.atomic():
-            logger.debug(f'{tg_id} | Создание новой категории в БД')
+            logger.debug(f"{tg_id} | Создание новой категории в БД")
 
             fields = [
                 Category.user,
                 Category.group_of_categories,
                 Category.category_name,
-                Category.archive
+                Category.archive,
             ]
             records = []
             user = User.get_or_none(telegram_id=tg_id)
             archived = False
 
             query = Category.select().where(
-                Category.user == user,
-                Category.archive == 0
+                Category.user == user, Category.archive == 0
             )
-            bd_category = [elem['category_name'] for elem in query.dicts().execute()]
+            bd_category = [elem["category_name"] for elem in query.dicts().execute()]
 
             for group, category_list in category_dict.items():
                 if isinstance(category_list, list):
                     for category in category_list:
                         if category not in bd_category:
                             records.append(
-                                (user,
-                                 str(group).capitalize(),
-                                 str(category).capitalize(),
-                                 archived)
+                                (
+                                    user,
+                                    str(group).capitalize(),
+                                    str(category).capitalize(),
+                                    archived,
+                                )
                             )
                 else:
                     records.append(
-                        (user, str(group).capitalize(), str(category_list).capitalize(), archived)
+                        (
+                            user,
+                            str(group).capitalize(),
+                            str(category_list).capitalize(),
+                            archived,
+                        )
                     )
-            logger.debug(f'{tg_id} | Собрали список категорий\n {records}\n')
+            logger.debug(f"{tg_id} | Собрали список категорий\n {records}\n")
 
             if records:
                 Category.insert_many(records, fields=fields).execute()
-                logger.debug(f'{tg_id} | Записал')
+                logger.debug(f"{tg_id} | Записал")
             else:
-                logger.debug(f'{tg_id} | Категория уже существует')
+                logger.debug(f"{tg_id} | Категория уже существует")
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при создании категории: {ex}')
+        logger.error(f"{tg_id} | Ошибка при создании категории: {ex}")
 
 
-def db_get_category(tg_id: int, group: str = None, user_name: str = None) -> Dict[str, List[str]]:
+def db_get_category(
+    tg_id: int, group: str = None, user_name: str = None
+) -> Dict[str, List[str]]:
     """
     Функция получает категории пользователя из БД.
 
@@ -131,16 +141,16 @@ def db_get_category(tg_id: int, group: str = None, user_name: str = None) -> Dic
         category = {}
 
         for elem in query.dicts().execute():
-            group = elem['group_of_categories']
+            group = elem["group_of_categories"]
             if category.get(group, False) is False:
-                category[group] = [elem['category_name']]
+                category[group] = [elem["category_name"]]
             else:
-                category[group].append(elem['category_name'])
+                category[group].append(elem["category_name"])
 
-        logger.debug(f'{tg_id} | Взял категории из БД')
+        logger.debug(f"{tg_id} | Взял категории из БД")
         return category
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при получении категорий из БД: {ex}')
+        logger.error(f"{tg_id} | Ошибка при получении категорий из БД: {ex}")
         return {}
 
 
@@ -167,14 +177,16 @@ def db_change_category(
             )
             if new_name:
                 category.category_name = new_name
-                logger.debug(f'{tg_id} | '
-                             f'Изменил название категории в БД с {category_name} на {new_name}')
+                logger.debug(
+                    f"{tg_id} | "
+                    f"Изменил название категории в БД с {category_name} на {new_name}"
+                )
             else:
                 category.archive = True
-                logger.debug(f'{tg_id} | Добавил категорию в архив {category_name}')
+                logger.debug(f"{tg_id} | Добавил категорию в архив {category_name}")
             category.save()
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при изменении категории: {ex}')
+        logger.error(f"{tg_id} | Ошибка при изменении категории: {ex}")
 
 
 def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> bool:
@@ -186,22 +198,21 @@ def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> bool:
     """
     try:
         with db.atomic():
-            user = User.get_or_none(telegram_id=user_dict['id'])
+            user = User.get_or_none(telegram_id=user_dict["id"])
             category = Category.get(
-                Category.user == user,
-                Category.category_name == user_dict['category']
+                Category.user == user, Category.category_name == user_dict["category"]
             ).id
-            user_date = datetime.strptime(user_dict['date'], '%Y-%m-%d').date()
+            user_date = datetime.strptime(user_dict["date"], "%Y-%m-%d").date()
 
-            transaction_summ = user_dict['summ']
+            transaction_summ = user_dict["summ"]
 
             with db.atomic():
                 transaction = {
-                    'user': user,
-                    'transaction_date': user_date,
-                    'amount': transaction_summ,
-                    'category': category,
-                    'description': user_dict['descr'],
+                    "user": user,
+                    "transaction_date": user_date,
+                    "amount": transaction_summ,
+                    "category": category,
+                    "description": user_dict["descr"],
                 }
 
                 user_balance = Balance.get(Balance.user == user)
@@ -225,20 +236,24 @@ def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
     """
     try:
         user = User.get_or_none(telegram_id=tg_id)
-        query = Transaction.select(
-            Transaction, Category.category_name
-        ).join(Category).where(
-            Transaction.user == user,
-        ).order_by(-Transaction.id).limit(30)
+        query = (
+            Transaction.select(Transaction, Category.category_name)
+            .join(Category)
+            .where(
+                Transaction.user == user,
+            )
+            .order_by(-Transaction.id)
+            .limit(30)
+        )
 
-        logger.debug(f'{tg_id} | Получил последние 30 операций пользователя')
+        logger.debug(f"{tg_id} | Получил последние 30 операций пользователя")
         return query.dicts().execute()
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при получении истории транзакций: {ex}')
+        logger.error(f"{tg_id} | Ошибка при получении истории транзакций: {ex}")
 
 
 def db_get_custom_date_history(
-        tg_id: int, start_date: date, end_date: date
+    tg_id: int, start_date: date, end_date: date
 ) -> List[Dict[str, Union[str, int, float]]]:
     """
     Функция, получает на вход идентификатор пользователя,
@@ -247,19 +262,20 @@ def db_get_custom_date_history(
     """
     try:
         user = User.get_or_none(telegram_id=tg_id)
-        query = Transaction.select(
-            Transaction, Category.category_name
-        ).join(Category).where(
-            Transaction.user == user,
-            Transaction.transaction_date.between(
-                start_date, end_date
+        query = (
+            Transaction.select(Transaction, Category.category_name)
+            .join(Category)
+            .where(
+                Transaction.user == user,
+                Transaction.transaction_date.between(start_date, end_date),
             )
-        ).order_by(-Transaction.id)
+            .order_by(-Transaction.id)
+        )
 
-        logger.debug(f'{tg_id} | Получил операции с {start_date} по {end_date}')
+        logger.debug(f"{tg_id} | Получил операции с {start_date} по {end_date}")
         return query.dicts().execute()
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при получении истории транзакций: {ex}')
+        logger.error(f"{tg_id} | Ошибка при получении истории транзакций: {ex}")
 
 
 def db_get_transaction(transaction_id: int) -> Dict[str, Union[int, str]]:
@@ -270,15 +286,19 @@ def db_get_transaction(transaction_id: int) -> Dict[str, Union[int, str]]:
     :return:
     """
     try:
-        query = Transaction.select(
-            Transaction, Category.category_name
-        ).join(Category).where(
-            Transaction.id == transaction_id,
-        ).dicts().execute()
+        query = (
+            Transaction.select(Transaction, Category.category_name)
+            .join(Category)
+            .where(
+                Transaction.id == transaction_id,
+            )
+            .dicts()
+            .execute()
+        )
         for query_dict in query:
             return query_dict
     except Exception as ex:
-        logger.error(f'Ошибка при получении транзакции из БД: {ex}')
+        logger.error(f"Ошибка при получении транзакции из БД: {ex}")
         return {}
 
 
@@ -294,30 +314,35 @@ def db_get_main_statistic(tg_id: int) -> Dict[str, List[float]]:
 
         date_dict = get_start_date()
 
-        query = Transaction.select(
-            Transaction.amount,
-            Transaction.transaction_date,
-        ).where(
-            Transaction.user == user,
-            Transaction.transaction_date.between(
-                date_dict.get('end_date'), date_dict.get('today')
-            ),
-        ).dicts().execute()
+        query = (
+            Transaction.select(
+                Transaction.amount,
+                Transaction.transaction_date,
+            )
+            .where(
+                Transaction.user == user,
+                Transaction.transaction_date.between(
+                    date_dict.get("end_date"), date_dict.get("today")
+                ),
+            )
+            .dicts()
+            .execute()
+        )
 
-        logger.debug(f'{tg_id} | Переход в составление статистики')
+        logger.debug(f"{tg_id} | Переход в составление статистики")
         return calculate_statistics(
             query=query,
-            first_day_of_week=date_dict.get('start_week'),
-            last_day_of_week=date_dict.get('end_week'),
-            first_day_of_month=date_dict.get('start_month')
+            first_day_of_week=date_dict.get("start_week"),
+            last_day_of_week=date_dict.get("end_week"),
+            first_day_of_month=date_dict.get("start_month"),
         )
     except Exception as ex:
-        logger.error(f'{tg_id} | Ошибка при получении основной статистики: {ex}')
+        logger.error(f"{tg_id} | Ошибка при получении основной статистики: {ex}")
         return {}
 
 
 def db_get_history_transaction(
-        tg_id: int, start_date=None, end_date=None
+    tg_id: int, start_date=None, end_date=None
 ) -> Tuple[Any, date | Any, date | Any]:
     """
     Функция получает информацию о транзакциях.
@@ -330,44 +355,56 @@ def db_get_history_transaction(
 
     today = date.today()
     if start_date is None:
-        start_date = date(today.year, today.month - 2, 1) \
-            if today.month > 2 \
+        start_date = (
+            date(today.year, today.month - 2, 1)
+            if today.month > 2
             else date(today.year - 1, 12 - today.month, 1)
+        )
 
     if end_date is None:
         end_date = today
 
-    print(f'БД {start_date} - {end_date}')
-    query = Transaction.select(
-        fn.CONCAT(
-            fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
-            '-',
-            fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
-        ).alias('year_month'),
-        fn.SUM(Transaction.amount).alias('amount'),
-        Category.category_name,
-    ).join(Category).where(
-        Transaction.user == user,
-        Transaction.transaction_date.between(start_date, end_date),
-    ).group_by(
-        fn.CONCAT(
-            fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
-            '-',
-            fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
-        ),
-        Category.category_name,
-    ).order_by(
-        fn.CONCAT(
-            fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast('VARCHAR'),
-            '-',
-            fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast('VARCHAR')
-        ),
-        fn.SUM(Transaction.amount).desc(),
-    ).dicts().execute()
+    print(f"БД {start_date} - {end_date}")
+    query = (
+        Transaction.select(
+            fn.CONCAT(
+                fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast("VARCHAR"),
+                "-",
+                fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast("VARCHAR"),
+            ).alias("year_month"),
+            fn.SUM(Transaction.amount).alias("amount"),
+            Category.category_name,
+        )
+        .join(Category)
+        .where(
+            Transaction.user == user,
+            Transaction.transaction_date.between(start_date, end_date),
+        )
+        .group_by(
+            fn.CONCAT(
+                fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast("VARCHAR"),
+                "-",
+                fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast("VARCHAR"),
+            ),
+            Category.category_name,
+        )
+        .order_by(
+            fn.CONCAT(
+                fn.EXTRACT(SQL('YEAR FROM "t1"."transaction_date"')).cast("VARCHAR"),
+                "-",
+                fn.EXTRACT(SQL('MONTH FROM "t1"."transaction_date"')).cast("VARCHAR"),
+            ),
+            fn.SUM(Transaction.amount).desc(),
+        )
+        .dicts()
+        .execute()
+    )
 
-    return query, \
-        date.strftime(start_date, "%d.%m.%Y"), \
-        date.strftime(end_date, "%d.%m.%Y")
+    return (
+        query,
+        date.strftime(start_date, "%d.%m.%Y"),
+        date.strftime(end_date, "%d.%m.%Y"),
+    )
 
 
 def db_delete_transaction(user_dict: Dict[str, int]) -> None:
@@ -379,9 +416,9 @@ def db_delete_transaction(user_dict: Dict[str, int]) -> None:
     """
     try:
         with db.atomic():
-            tg_id = user_dict.get('user_id')
-            transaction_id = user_dict.get('id')
-            summ = float(user_dict.get('summ'))
+            tg_id = user_dict.get("user_id")
+            transaction_id = user_dict.get("id")
+            summ = float(user_dict.get("summ"))
 
             user = User.get_or_none(telegram_id=tg_id)
 
@@ -391,14 +428,14 @@ def db_delete_transaction(user_dict: Dict[str, int]) -> None:
             user_balance.balance -= Decimal(summ)
             user_balance.save()
 
-            logger.debug(f'Операцию id-{transaction_id} удалили')
+            logger.debug(f"Операцию id-{transaction_id} удалили")
     except Exception as e:
-        logger.error(f'Ошибка удаления операции в БД: {e}')
+        logger.error(f"Ошибка удаления операции в БД: {e}")
 
 
-if not os.path.exists('database/bot_database.db'):
+if not os.path.exists("database/bot_database.db"):
     try:
         with db:
             db.create_tables([User, Transaction, Category, Account, Balance])
     except Exception as ex:
-        logger.error(f'database.py | Ошибка при создании БД - {ex}')
+        logger.error(f"database.py | Ошибка при создании БД - {ex}")

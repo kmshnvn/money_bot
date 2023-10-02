@@ -7,6 +7,7 @@ from config_data.config import MONTH_NAME
 
 HISTORY_DISPLAY_LIMIT = 15
 
+
 def get_start_date() -> Dict[str, date]:
     """
     Возвращает даты начала периода для рассчета статистики в команде /start.
@@ -20,26 +21,30 @@ def get_start_date() -> Dict[str, date]:
         month = today.month
         year = today.year
 
-        first_day_of_week = datetime.strptime(f'{year}-W{week_number}-1', "%Y-W%W-%w").date()
-        first_day_of_month = datetime.strptime(f'{year}-{month}-1', '%Y-%m-%d').date()
+        first_day_of_week = datetime.strptime(
+            f"{year}-W{week_number}-1", "%Y-W%W-%w"
+        ).date()
+        first_day_of_month = datetime.strptime(f"{year}-{month}-1", "%Y-%m-%d").date()
         last_day_of_week = first_day_of_week + timedelta(days=6)
 
-        end_date = first_day_of_month \
-            if first_day_of_month < first_day_of_week \
+        end_date = (
+            first_day_of_month
+            if first_day_of_month < first_day_of_week
             else first_day_of_week
+        )
 
-        logger.debug(f'Собрали даты')
+        logger.debug(f"Собрали даты")
 
         return {
-            'today': today,
-            'end_date': end_date,
-            'start_week': first_day_of_week,
-            'end_week': last_day_of_week,
-            'start_month': first_day_of_month,
+            "today": today,
+            "end_date": end_date,
+            "start_week": first_day_of_week,
+            "end_week": last_day_of_week,
+            "start_month": first_day_of_month,
         }
 
     except Exception as e:
-        logger.error(f'Ошибка при вычислении статистики: {e}')
+        logger.error(f"Ошибка при вычислении статистики: {e}")
 
 
 def calculate_statistics(
@@ -65,26 +70,26 @@ def calculate_statistics(
         month_result = []
 
         for elem in query:
-            if elem.get('transaction_date') >= first_day_of_month:
-                month_result.append(float(elem.get('amount')))
-                if elem.get('transaction_date') == today:
-                    today_result.append(float(elem.get('amount')))
+            if elem.get("transaction_date") >= first_day_of_month:
+                month_result.append(float(elem.get("amount")))
+                if elem.get("transaction_date") == today:
+                    today_result.append(float(elem.get("amount")))
 
         for elem in query:
-            if first_day_of_week <= elem.get('transaction_date') <= last_day_of_week:
-                week_result.append(float(elem.get('amount')))
+            if first_day_of_week <= elem.get("transaction_date") <= last_day_of_week:
+                week_result.append(float(elem.get("amount")))
 
         result = {
-            'today': today_result,
-            'week': week_result,
-            'month': month_result,
+            "today": today_result,
+            "week": week_result,
+            "month": month_result,
         }
 
-        logger.debug(f'Собрали текст статистики')
+        logger.debug(f"Собрали текст статистики")
 
         return result
     except Exception as ex:
-        logger.error(f'Ошибка при вычислении статистики: {ex}')
+        logger.error(f"Ошибка при вычислении статистики: {ex}")
         return {}
 
 
@@ -101,16 +106,16 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
 
     history_to_remove = []
     for day_history in history[:HISTORY_DISPLAY_LIMIT]:
-        user_date = day_history.get('transaction_date')
+        user_date = day_history.get("transaction_date")
         if user_date not in date_list:
             date_list.append(user_date)
-            user_date = 'Сегодня' if user_date == today_date else user_date
-            text += f'📆*{user_date}*\n\n'
+            user_date = "Сегодня" if user_date == today_date else user_date
+            text += f"📆*{user_date}*\n\n"
 
-        summ = day_history.get('amount')
-        descr = day_history.get('description')
-        history_id = day_history.get('id')
-        category = day_history.get('category_name')
+        summ = day_history.get("amount")
+        descr = day_history.get("description")
+        history_id = day_history.get("id")
+        category = day_history.get("category_name")
 
         text += (
             f"{float(summ)} ₽ | *{category}*\n"
@@ -134,16 +139,16 @@ def text_of_stat(history_list: Dict) -> str:
     :return: Итоговый текст статистики.
     """
     date_list = []
-    text = ''
+    text = ""
 
     for history in reversed(history_list):
-        summ = float(history['amount'])
-        year_month = history['year_month']
-        year, month = year_month.split('-')
+        summ = float(history["amount"])
+        year_month = history["year_month"]
+        year, month = year_month.split("-")
         month_name = MONTH_NAME[int(month)]
 
         if year_month not in date_list:
-            text += f'\n🔹*{month_name} {year}*\n\n'
+            text += f"\n🔹*{month_name} {year}*\n\n"
             date_list.append(year_month)
 
         text += f"  🔸{history['category_name']}: {summ} ₽\n"

@@ -8,22 +8,16 @@ from config_data.config import BOT_TOKEN, DEFAULT_COMMANDS
 
 
 async def main():
-    bot = Bot(token=BOT_TOKEN, parse_mode='Markdown')
+    bot = Bot(token=BOT_TOKEN, parse_mode="Markdown")
 
     await bot.set_my_commands(
         [BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS]
     )
 
     dp = Dispatcher(storage=storage)
-    dp.include_routers(
-        start.router,
-        help.router,
-        echo.router
-    )
+    dp.include_routers(start.router, help.router, echo.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
-    logger.info('Настройка бота прошла успешно')
+    logger.info("Настройка бота прошла успешно")
 
     await dp.start_polling(bot)
-
-

@@ -28,14 +28,14 @@ class SimpleCalendarAction(IntEnum):
     NEXT_MONTH = 6
 
 
-class DialogCalendarCallback(CallbackData, prefix='dialog_calendar'):
+class DialogCalendarCallback(CallbackData, prefix="dialog_calendar"):
     act: DialogCalendarAction
     year: int
     month: int
     day: int
 
 
-class SimpleCalendarCallback(CallbackData, prefix='simple_calendar'):
+class SimpleCalendarCallback(CallbackData, prefix="simple_calendar"):
     act: SimpleCalendarAction
     year: int
     month: int
