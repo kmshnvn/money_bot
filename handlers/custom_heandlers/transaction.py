@@ -30,13 +30,24 @@ from keyboards.inline_keyboards import (
 from keyboards.reply_keyboards import default_category_kb
 
 
-async def check_regexp_summ(text: str):
-    pattern = r"\d+(?:,\d{2})?"
+async def check_regexp_summ(text: str) -> str:
+    pattern = r"\d+(,\d{1,2})?"
     match = re.findall(pattern, text)[0]
     if match:
         corrected_number = match.replace(",", ".")
         text = text.replace(match, corrected_number)
         return text
+    else:
+        return text
+
+
+async def calculate_sum(text: str):
+    num_list = text.split("+")
+    summ = 0
+    for elem in num_list:
+        num = await check_regexp_summ(elem)
+        summ += float(num)
+    return str(summ)
 
 
 @router.message(F.text.contains("Новая операция"))
@@ -113,6 +124,7 @@ async def new_transaction(message: Message, state: FSMContext):
     UserState.transaction_summ,
     Text(text=["income", "expense", "change_for_today_date"]),
 )
+@router.callback_query(UserState.transaction_category, Text("back"))
 async def transaction_summ(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для уточнения суммы операции.
@@ -121,6 +133,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
         logger.debug(
             f"Пользователь {callback.message.chat.id}. Уточняем сумму операции"
         )
+        await state.set_state(UserState.transaction_summ)
 
         not_today = True
         if callback.data == "change_for_today_date":
@@ -223,7 +236,10 @@ async def process_simple_calendar(
         )
 
 
-@router.message(UserState.transaction_summ, F.text.regexp(r"^\d+(?:[\.,]\d{1,2})?$"))
+@router.message(
+    UserState.transaction_summ,
+    F.text.regexp(r"\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"),
+)
 async def transaction_category(message: Message, state: FSMContext):
     """
     Функция. Проверяем вводимое число пользователя и уточняем категорию операции
@@ -233,8 +249,12 @@ async def transaction_category(message: Message, state: FSMContext):
             f"Пользователь {message.chat.id} - Сумма {message.text}. "
             f"Уточняем категорию операции"
         )
-
-        user_text = await check_regexp_summ(message.text)
+        pattern = "\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"
+        match = re.search(pattern, message.text)
+        if match:
+            user_text = await calculate_sum(message.text)
+        else:
+            user_text = await check_regexp_summ(message.text)
         await state.update_data({"summ": float(user_text)})
 
         user_dict = await state.get_data()
@@ -254,8 +274,12 @@ async def transaction_category(message: Message, state: FSMContext):
         await message.answer(
             f"🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
             f"🔸100\n"
+            f"🔸100.0\n"
+            f"🔸100,0\n"
             f"🔸100.00\n"
-            f"🔸100,00\n",
+            f"🔸100,00\n\n"
+            f"Также можно ввести сумму для калькулятора в формате:\n"
+            f"🔹100+100,0+..",
         )
 
 
@@ -614,7 +638,8 @@ async def callback_change_unwritten_category(
 
 
 @router.message(
-    UserState.change_transaction_details_summ, F.text.regexp(r"^\d+(?:[\.,]\d{1,2})?$")
+    UserState.change_transaction_details_summ,
+    F.text.regexp(r"\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"),
 )
 async def transaction_category(message: Message, state: FSMContext):
     """
@@ -626,7 +651,13 @@ async def transaction_category(message: Message, state: FSMContext):
             f"Уточняем категорию операции"
         )
 
-        user_text = await check_regexp_summ(message.text)
+        pattern = "\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"
+        match = re.search(pattern, message.text)
+        if match:
+            user_text = await calculate_sum(message.text)
+        else:
+            user_text = await check_regexp_summ(message.text)
+        await state.update_data({"summ": float(user_text)})
         await state.update_data({"summ": float(user_text)})
         await transaction_check_without_descr(message, state)
     except Exception as ex:
@@ -634,8 +665,12 @@ async def transaction_category(message: Message, state: FSMContext):
         await message.answer(
             f"🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
             f"🔸100\n"
+            f"🔸100.0\n"
+            f"🔸100,0\n"
             f"🔸100.00\n"
-            f"🔸100,00\n",
+            f"🔸100,00\n\n"
+            f"Также можно ввести сумму для калькулятора в формате:\n"
+            f"🔹100+100,0+..",
         )
 
 

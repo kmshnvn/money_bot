@@ -72,7 +72,7 @@ def transaction_main_kb(
     if group_name == "Expense":
         kb.add(InlineKeyboardButton(text="💰Нет, это доход💰", callback_data="income"))
     else:
-        kb.add(InlineKeyboardButton(text="Нет, это расход", callback_data="expense"))
+        kb.add(InlineKeyboardButton(text="📈Нет, это расход📈", callback_data="expense"))
 
     kb.add(
         InlineKeyboardButton(
@@ -97,11 +97,8 @@ def user_category_kb(category_list: list) -> InlineKeyboardMarkup:
                 text=elem, callback_data=f"transaction_category:{elem}"
             )
         )
-    # kb.add(InlineKeyboardButton(
-    #     text='⬅️Назад',
-    #     callback_data=f"back")
-    # )
     kb.adjust(2)
+    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data=f"back"))
     return kb.as_markup()
 
 
