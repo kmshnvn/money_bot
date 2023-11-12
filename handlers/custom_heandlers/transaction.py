@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 import re
+from typing import Dict
 
+from fuzzywuzzy import fuzz
 from loguru import logger
 
 from aiogram.filters import Command, Text
@@ -14,6 +16,8 @@ from database.database import (
     db_create_transaction,
     db_create_category,
     db_get_balance,
+    db_get_transaction,
+    db_update_transaction,
 )
 
 from database.states import UserState
@@ -26,6 +30,9 @@ from keyboards.inline_keyboards import (
     transaction_save_kb,
     save_category_kb,
     change_transaction_details_kb,
+    change_success_transaction,
+    change_success_transaction_details_kb,
+    update_category_kb,
 )
 from keyboards.reply_keyboards import default_category_kb
 
@@ -48,6 +55,49 @@ async def calculate_sum(text: str):
         num = await check_regexp_summ(elem)
         summ += float(num)
     return str(summ)
+
+
+async def check_change_transaction(user_data: dict):
+    user_dict = user_data["old_transaction_info"]
+    description = (
+        user_data["change_descr"]
+        if user_data["change_descr"] != ""
+        else user_dict["old_descr"]
+    )
+    text_descr = "(Без описания)" if description == "" else description
+
+    category = (
+        user_data["change_category"]
+        if user_data["change_category"] != ""
+        else user_dict["old_category"]
+    )
+    user_date = (
+        user_data["change_date"]
+        if user_data["change_date"] != ""
+        else user_dict["old_date"]
+    )
+
+    if user_dict["old_group"] == "Expense":
+        if user_data["change_summ"] == "":
+            amount = user_dict["old_summ"]
+            summ = -user_dict["old_summ"]
+        else:
+            amount = -user_data["change_summ"]
+            summ = user_data["change_summ"]
+    else:
+        amount, summ = user_data["change_summ"]
+
+    transaction_dict = {
+        "id": user_data["id"],
+        "date": user_date,
+        "summ": summ,
+        "category": category,
+        "descr": description,
+        "amount": amount,
+        "text_descr": text_descr,
+    }
+
+    return transaction_dict
 
 
 @router.message(F.text.contains("Новая операция"))
@@ -122,7 +172,9 @@ async def new_transaction(message: Message, state: FSMContext):
 
 @router.callback_query(
     UserState.transaction_summ,
-    Text(text=["income", "expense", "change_for_today_date"]),
+    Text(
+        text=["income", "expense", "change_for_today_date", "change_for_yesterday_date"]
+    ),
 )
 @router.callback_query(UserState.transaction_category, Text("back"))
 async def transaction_summ(callback: CallbackQuery, state: FSMContext):
@@ -138,6 +190,10 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
         not_today = True
         if callback.data == "change_for_today_date":
             await state.update_data({"date": str(date.today())})
+        elif callback.data == "change_for_yesterday_date":
+            yesterday = date.today() - timedelta(days=1)
+            await state.update_data({"date": str(yesterday)})
+
         group_name = callback.data.title()
 
         user_dict = await state.get_data()
@@ -184,6 +240,9 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(
     UserState.change_transaction_details, Text("change_transaction_date")
 )
+@router.callback_query(
+    UserState.change_success_transaction_details, Text("change_transaction_date")
+)
 async def transaction_user_date(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик команды выбора даты для статистики.
@@ -205,6 +264,9 @@ async def transaction_user_date(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(
     UserState.change_transaction_details, simple_cal_callback.filter()
 )
+@router.callback_query(
+    UserState.change_success_transaction_details, simple_cal_callback.filter()
+)
 async def process_simple_calendar(
     callback_query: CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -217,17 +279,22 @@ async def process_simple_calendar(
         )
 
         if selected:
-            await state.update_data({"date": date.strftime("%Y-%m-%d")})
             user_state = await state.get_state()
 
-            if user_state == "UserState:transaction_summ":
-                await transaction_summ(callback_query, state)
-            elif user_state == "UserState:change_transaction_details":
-                await callback_transaction_check(callback_query, state)
+            if user_state == "UserState:change_success_transaction_details":
+                await state.update_data({"change_date": date.strftime("%d.%m.%Y")})
+                await callback_change_success_transaction_check(callback_query, state)
             else:
-                await callback_query.message.edit_text(
-                    f"Что-то пошло не так при выборе даты, скоро все исправим😵‍💫",
-                )
+                await state.update_data({"date": date.strftime("%d.%m.%Y")})
+
+                if user_state == "UserState:transaction_summ":
+                    await transaction_summ(callback_query, state)
+                elif user_state == "UserState:change_transaction_details":
+                    await callback_transaction_check(callback_query, state)
+                else:
+                    await callback_query.message.edit_text(
+                        f"Что-то пошло не так при выборе даты, скоро все исправим😵‍💫",
+                    )
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при обработке календаря: {ex}")
@@ -251,21 +318,26 @@ async def transaction_category(message: Message, state: FSMContext):
         )
         pattern = "\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"
         match = re.search(pattern, message.text)
+
         if match:
             user_text = await calculate_sum(message.text)
         else:
             user_text = await check_regexp_summ(message.text)
         await state.update_data({"summ": float(user_text)})
+        user_state = await state.get_state()
 
         user_dict = await state.get_data()
+
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
+
         user_category = sorted(user_dict[group_name])
 
         await message.answer(
+            f"Сумма - {user_text}\n\n"
             f"В какой категории была операция?\n"
             f"\nЕсли операции нет и нужно добавить - "
             f"просто введи новую категорию",
-            reply_markup=user_category_kb(user_category),
+            reply_markup=user_category_kb(user_category, group_name),
         )
         await state.set_state(UserState.transaction_category)
 
@@ -287,9 +359,15 @@ async def transaction_category(message: Message, state: FSMContext):
 @router.callback_query(
     UserState.change_transaction_details, Text("change_transaction_category")
 )
+@router.callback_query(
+    UserState.change_success_transaction_details, Text("change_transaction_category")
+)
+@router.callback_query(UserState.transaction_category, Text(text=["income", "expense"]))
 async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
     """
-    Функция. Проверяем вводимое число пользователя и уточняем категорию операции
+    Функция. Проверяем вводимое число пользователя и уточняем категорию операции.
+    Сюда можно попасть только в том случае, если пользователь ввел новую категорию и нажал "Назад".
+    Либо при изменении операции перед записью, либо смена Доход/расход во время выбора категории
     """
     try:
         logger.debug(
@@ -297,20 +375,38 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
             f"Уточняем категорию операции"
         )
 
-        user_dict = await state.get_data()
-        group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
-        user_category = sorted(user_dict[group_name])
+        if callback.data in ["income", "expense"]:
+            await state.update_data({"group": callback.data.title()})
 
-        await callback.message.edit_text(
-            f"В какой категории была операция?\n"
-            f"\nЕсли операции нет и нужно добавить - "
-            f"просто введи новую категорию",
-            reply_markup=user_category_kb(user_category),
-        )
+        user_dict = await state.get_data()
         user_state = await state.get_state()
         await state.update_data({"user_state": user_state})
 
-        await state.set_state(UserState.transaction_category)
+        if user_state == "UserState:change_success_transaction_details":
+            group_name = user_dict["old_transaction_info"]["old_group"]
+            user_category = sorted(user_dict[group_name])
+
+            await callback.message.edit_text(
+                f"В какой категории была операция?\n"
+                f"\nЕсли операции нет и нужно добавить - "
+                f"просто введи новую категорию",
+                reply_markup=user_category_kb(user_category),
+            )
+
+            await state.set_state(UserState.change_transaction_category)
+
+        else:
+            group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
+            user_category = sorted(user_dict[group_name])
+
+            await callback.message.edit_text(
+                f"В какой категории была операция?\n"
+                f"\nЕсли операции нет и нужно добавить - "
+                f"просто введи новую категорию",
+                reply_markup=user_category_kb(user_category, group_name),
+            )
+
+            await state.set_state(UserState.transaction_category)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении категории операции: {ex}")
@@ -320,6 +416,7 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(UserState.transaction_category)
+@router.message(UserState.change_transaction_category)
 async def transaction_description(message: Message, state: FSMContext):
     """
     Функция. Уточненяем описание операции.
@@ -330,8 +427,11 @@ async def transaction_description(message: Message, state: FSMContext):
         user_dict = await state.get_data()
 
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
-
-        if category not in user_dict[group_name]:
+        matching_category = next(
+            (elem for elem in user_dict[group_name] if fuzz.ratio(category, elem) > 80),
+            None,
+        )
+        if matching_category is None:
             await state.update_data({"category": category})
 
             await message.answer(
@@ -342,8 +442,14 @@ async def transaction_description(message: Message, state: FSMContext):
                 reply_markup=transaction_save_kb(),
             )
             await state.set_state(UserState.transaction_new_category)
+        elif (
+            user_dict.get("user_state")
+            == "UserState:change_success_transaction_details"
+        ):
+            await state.update_data({"change_category": matching_category})
+            await change_success_transaction_check(message, state)
         else:
-            await state.update_data({"category": category})
+            await state.update_data({"category": matching_category})
             if user_dict.get("user_state") == "UserState:change_transaction_details":
                 await transaction_check_without_descr(message, state)
             else:
@@ -365,6 +471,9 @@ async def transaction_description(message: Message, state: FSMContext):
 @router.callback_query(
     UserState.transaction_category, Text(startswith="transaction_category:")
 )
+@router.callback_query(
+    UserState.change_transaction_category, Text(startswith="transaction_category:")
+)
 async def transaction_callback_description(callback: CallbackQuery, state: FSMContext):
     """
     Функция. Уточненяем описание операции.
@@ -374,13 +483,19 @@ async def transaction_callback_description(callback: CallbackQuery, state: FSMCo
             f"Пользователь {callback.message.chat.id}. Уточняем описание операции"
         )
         category = callback.data.split(":")[1]
-
-        await state.update_data({"category": category})
-
         user_dict = await state.get_data()
-        if user_dict.get("user_state") == "UserState:change_transaction_details":
+
+        if (
+            user_dict.get("user_state")
+            == "UserState:change_success_transaction_details"
+        ):
+            await state.update_data({"change_category": category})
+            await callback_change_success_transaction_check(callback, state)
+        elif user_dict.get("user_state") == "UserState:change_transaction_details":
+            await state.update_data({"category": category})
             await callback_transaction_check(callback, state)
         else:
+            await state.update_data({"category": category})
             await callback.message.edit_text(
                 f"Добавьте описание операции (необязательно)",
                 reply_markup=transaction_descr_kb(),
@@ -459,6 +574,71 @@ async def callback_transaction_check(callback: CallbackQuery, state: FSMContext)
         )
 
 
+async def change_success_transaction_check(message: Message, state: FSMContext):
+    """
+    Проверка уже сохраненной операции перед обновлением информации в БД.
+    """
+    try:
+        logger.debug(
+            f"Пользователь {message.chat.id}. Проверка операции перед обновлением информации в БД"
+        )
+
+        user_data = await state.get_data()
+
+        transaction_dict = await check_change_transaction(user_data)
+
+        await state.update_data({"transaction_dict": transaction_dict})
+
+        await message.answer(
+            f"Сейчас операция будет выглядеть так:\n"
+            f'Дата - *{transaction_dict["date"]}*\n'
+            f'Сумма - *{transaction_dict["summ"]}*\n'
+            f'Категория - *{transaction_dict["category"]}*\n'
+            f'Описание - {transaction_dict["descr"]}\n',
+            reply_markup=update_category_kb(),
+        )
+        await state.set_state(UserState.update_transaction)
+    except Exception as ex:
+        logger.error(f"Что-то пошло не так при проверке операции: {ex}")
+        await message.answer(
+            "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
+        )
+
+
+@router.callback_query(UserState.change_success_transaction_details, Text("back"))
+async def callback_change_success_transaction_check(
+    callback: CallbackQuery, state: FSMContext
+):
+    """
+    Проверка уже сохраненной операции перед обновлением информации в БД.
+    """
+    try:
+        logger.debug(
+            f"Пользователь {callback.message.chat.id}. Проверка операции перед обновлением информации в БД"
+        )
+
+        user_data = await state.get_data()
+
+        transaction_dict = await check_change_transaction(user_data)
+
+        await state.update_data({"transaction_dict": transaction_dict})
+
+        await callback.message.edit_text(
+            f"Сейчас операция будет выглядеть так:\n"
+            f'Дата - *{transaction_dict["date"]}*\n'
+            f'Сумма - *{transaction_dict["summ"]}*\n'
+            f'Категория - *{transaction_dict["category"]}*\n'
+            f'Описание - {transaction_dict["descr"]}\n',
+            reply_markup=update_category_kb(),
+        )
+        await state.set_state(UserState.update_transaction)
+    except Exception as ex:
+        logger.error(f"Что-то пошло не так при проверке операции: {ex}")
+        await callback.message.answer(
+            "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
+        )
+
+
 async def transaction_check_without_descr(message: Message, state: FSMContext):
     """
     Проверка операции перед сохранением.
@@ -489,6 +669,7 @@ async def transaction_check_without_descr(message: Message, state: FSMContext):
 
 @router.message(UserState.transaction_description)
 @router.message(UserState.change_transaction_details_descr)
+@router.message(UserState.change_success_transaction_details_descr)
 async def transaction_check(message: Message, state: FSMContext):
     """
     Проверка операции перед сохранением.
@@ -497,23 +678,84 @@ async def transaction_check(message: Message, state: FSMContext):
         logger.debug(f"Пользователь {message.chat.id}. Проверка операции")
 
         description = message.text
-        await state.update_data({"descr": description})
-        user_dict = await state.get_data()
+        user_state = await state.get_state()
 
-        await message.answer(
-            f"Проверим операцию:\n"
-            f'Дата - *{user_dict["date"]}*\n'
-            f'Сумма - *{user_dict["summ"]}*\n'
-            f'Категория - *{user_dict["category"]}*\n'
-            f"Описание - *{description}*\n",
-            reply_markup=save_category_kb(),
-        )
-        await state.set_state(UserState.save_transaction)
+        if user_state == "UserState:change_success_transaction_details_descr":
+            await state.update_data({"change_descr": description})
+            await change_success_transaction_check(message, state)
+        else:
+            await state.update_data({"descr": description})
+            user_dict = await state.get_data()
+
+            await message.answer(
+                f"Проверим операцию:\n"
+                f'Дата - *{user_dict["date"]}*\n'
+                f'Сумма - *{user_dict["summ"]}*\n'
+                f'Категория - *{user_dict["category"]}*\n'
+                f"Описание - *{description}*\n",
+                reply_markup=save_category_kb(),
+            )
+            await state.set_state(UserState.save_transaction)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
         await message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
+        )
+
+
+@router.callback_query(UserState.update_transaction, Text("update_transaction"))
+async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
+    """
+    Функция обновления транзакции в БД.
+    """
+    try:
+        logger.debug(
+            f"Пользователь {callback.message.chat.id}. Обновление транзакции в БД"
+        )
+
+        user_dict = await state.get_data()
+
+        transaction_dict = user_dict["transaction_dict"]
+
+        if db_update_transaction(transaction_dict, callback.message.chat.id):
+            balance = db_get_balance(callback.message.chat.id)
+
+            await callback.message.edit_text(
+                text=(
+                    f"✅Операцию обновил\n\n"
+                    f"Дата - *{transaction_dict['date']}*\n"
+                    f"Сумма - *{transaction_dict['summ']}*\n"
+                    f"Категория - *{transaction_dict['category']}*\n"
+                    f"Описание - {transaction_dict['text_descr']}\n"
+                ),
+            )
+
+            user_dict.pop("transaction_dict")
+            user_dict.pop("old_transaction_info")
+            user_dict.pop("change_category")
+            user_dict.pop("change_date")
+            user_dict.pop("change_descr")
+            user_dict.pop("change_summ")
+            user_dict.pop("id")
+
+            await state.set_data(user_dict)
+
+            user_dict = await state.get_data()
+
+            await state.set_state(UserState.transaction_summ)
+        else:
+            await callback.message.edit_text(
+                text=(
+                    f"🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
+                ),
+            )
+            await state.set_state(UserState.transaction_summ)
+    #
+    except Exception as ex:
+        logger.error(f"Ошибка при записи транзакции в БД: {ex}")
+        await callback.message.answer(
+            "🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
         )
 
 
@@ -539,7 +781,9 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             "descr": user_dict["descr"],
         }
 
-        if db_create_transaction(transaction_dict):
+        transaction_id = db_create_transaction(transaction_dict)
+
+        if transaction_id:
             balance = db_get_balance(callback.message.chat.id)
             default_group = "Expense"
 
@@ -562,6 +806,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                     f'Категория - *{user_dict["category"]}*\n'
                     f'Описание - *{user_dict["descr"]}*\n'
                 ),
+                reply_markup=change_success_transaction(transaction_id),
             )
 
             user_dict = await state.get_data()
@@ -597,7 +842,12 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         )
 
 
+@router.callback_query(UserState.change_transaction_category, Text("back"))
 @router.callback_query(UserState.save_transaction, Text("change_transaction"))
+@router.callback_query(UserState.update_transaction, Text("change_transaction"))
+@router.callback_query(
+    UserState.transaction_summ, Text(startswith="change_success_transaction")
+)
 async def callback_change_unwritten_category(
     callback: CallbackQuery, state: FSMContext
 ):
@@ -609,16 +859,80 @@ async def callback_change_unwritten_category(
         f"Уточняем какие данные изменить перед сохранением"
     )
 
-    await state.set_state(UserState.change_transaction_details)
+    user_state = await state.get_state()
 
-    await callback.message.edit_text(
-        text=(f"Что будем менять?"),
-        reply_markup=change_transaction_details_kb(),
-    )
+    if user_state == "UserState:save_transaction":
+        await state.set_state(UserState.change_transaction_details)
+
+        await callback.message.edit_text(
+            text=f"Что будем менять?",
+            reply_markup=change_transaction_details_kb(),
+        )
+
+    elif (
+        user_state == "UserState:update_transaction"
+        or user_state == "UserState:change_transaction_category"
+    ):
+        await state.set_state(UserState.change_success_transaction_details)
+
+        await callback.message.edit_text(
+            text=f"Что будем менять?",
+            reply_markup=change_transaction_details_kb(),
+        )
+
+    else:
+        transaction_id = callback.data.split("-")[1]
+
+        transaction = db_get_transaction(int(transaction_id))
+        if transaction:
+            amount = float(transaction.get("amount"))
+            summ = amount if amount >= 0 else -amount
+            group = "Income" if amount >= 0 else "Expense"
+            transaction_date = date.strftime(
+                transaction["transaction_date"], "%d.%m.%Y"
+            )
+
+            await state.update_data(
+                {
+                    "id": transaction_id,
+                    "change_summ": "",
+                    "change_descr": "",
+                    "change_date": "",
+                    "change_category": "",
+                    "old_transaction_info": {
+                        "old_date": transaction_date,
+                        "old_summ": float(transaction["amount"]),
+                        "old_category": transaction["category_name"],
+                        "old_descr": transaction["description"],
+                        "old_group": group,
+                    },
+                }
+            )
+
+            text = (
+                f"Выбрана операция\n\n"
+                f"*Дата операции: {transaction_date}*\n"
+                f'{summ} ₽ в категории {transaction["category_name"]}\n'
+                f'Описание: {transaction["description"]}\n\n'
+            )
+
+            await callback.message.answer(
+                text=f"{text}Что будем менять?",
+                reply_markup=change_success_transaction_details_kb(),
+            )
+
+            await state.set_state(UserState.change_success_transaction_details)
+        else:
+            await callback.message.answer(
+                text=f"Операция уже удалена или не существует",
+            )
 
 
 @router.callback_query(
     UserState.change_transaction_details, Text("change_transaction_summ")
+)
+@router.callback_query(
+    UserState.change_success_transaction_details, Text("change_transaction_summ")
 )
 async def callback_change_unwritten_category(
     callback: CallbackQuery, state: FSMContext
@@ -631,14 +945,24 @@ async def callback_change_unwritten_category(
         f"запрашиваем новую сумму операции перед сохранением"
     )
 
+    user_state = await state.get_state()
+
+    if user_state == "UserState:change_success_transaction_details":
+        await state.set_state(UserState.change_success_transaction_details_summ)
+    elif user_state == "UserState:change_transaction_details":
+        await state.set_state(UserState.change_transaction_details_summ)
+
     await callback.message.edit_text(
         text=f"Введите новую сумму",
     )
-    await state.set_state(UserState.change_transaction_details_summ)
 
 
 @router.message(
     UserState.change_transaction_details_summ,
+    F.text.regexp(r"\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"),
+)
+@router.message(
+    UserState.change_success_transaction_details_summ,
     F.text.regexp(r"\d+(?:[,.]\d{1,2})?(?:\s*[-+]\s*\d+(?:[,.]\d{1,2})?)*"),
 )
 async def transaction_category(message: Message, state: FSMContext):
@@ -657,9 +981,17 @@ async def transaction_category(message: Message, state: FSMContext):
             user_text = await calculate_sum(message.text)
         else:
             user_text = await check_regexp_summ(message.text)
-        await state.update_data({"summ": float(user_text)})
-        await state.update_data({"summ": float(user_text)})
-        await transaction_check_without_descr(message, state)
+
+        user_state = await state.get_state()
+
+        if user_state == "UserState:change_success_transaction_details_summ":
+            await state.update_data({"change_summ": float(user_text)})
+            await change_success_transaction_check(message, state)
+
+        elif user_state == "UserState:change_transaction_details_summ":
+            await state.update_data({"summ": float(user_text)})
+            await transaction_check_without_descr(message, state)
+
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке: {ex}")
         await message.answer(
@@ -677,6 +1009,9 @@ async def transaction_category(message: Message, state: FSMContext):
 @router.callback_query(
     UserState.change_transaction_details, Text("change_transaction_descr")
 )
+@router.callback_query(
+    UserState.change_success_transaction_details, Text("change_transaction_descr")
+)
 async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     """
     Функция. Уточняем новое описание операии
@@ -687,4 +1022,10 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         text=f"Введите описание операции",
     )
-    await state.set_state(UserState.change_transaction_details_descr)
+
+    user_state = await state.get_state()
+
+    if user_state == "UserState:change_success_transaction_details":
+        await state.set_state(UserState.change_success_transaction_details_descr)
+    elif user_state == "UserState:change_transaction_details":
+        await state.set_state(UserState.change_transaction_details_descr)

@@ -189,7 +189,7 @@ def db_change_category(
         logger.error(f"{tg_id} | Ошибка при изменении категории: {ex}")
 
 
-def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> bool:
+def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> int:
     """
     Функция создает новую транзакцию для пользователя и сохраняет ее в БД.
 
@@ -219,12 +219,11 @@ def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> bool:
                 user_balance.balance += Decimal(transaction_summ)
                 user_balance.save()
 
-                Transaction.insert(transaction).execute()
+                transaction_id = Transaction.insert(transaction).execute()
                 logger.debug(f'{user_dict["id"]} | Записал новую транзакцию в БД')
-        return True
+        return transaction_id
     except Exception as ex:
         logger.error(f'{user_dict["id"]} | Ошибка при создании транзакции: {ex}')
-        return False
 
 
 def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
@@ -242,7 +241,7 @@ def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
             .where(
                 Transaction.user == user,
             )
-            .order_by(-Transaction.id)
+            .order_by(Transaction.transaction_date)
             .limit(30)
         )
 
@@ -269,7 +268,7 @@ def db_get_custom_date_history(
                 Transaction.user == user,
                 Transaction.transaction_date.between(start_date, end_date),
             )
-            .order_by(-Transaction.id)
+            .order_by(Transaction.transaction_date)
         )
 
         logger.debug(f"{tg_id} | Получил операции с {start_date} по {end_date}")
@@ -364,7 +363,6 @@ def db_get_history_transaction(
     if end_date is None:
         end_date = today
 
-    print(f"БД {start_date} - {end_date}")
     query = (
         Transaction.select(
             fn.CONCAT(
@@ -407,12 +405,12 @@ def db_get_history_transaction(
     )
 
 
-def db_delete_transaction(user_dict: Dict[str, int]) -> None:
+def db_delete_transaction(user_dict: Dict[str, int]) -> bool:
     """
     Функция удаляет транзакцию по ее идентификатору из БД.
 
     :param:
-    :return:
+    :return: True or False
     """
     try:
         with db.atomic():
@@ -429,8 +427,44 @@ def db_delete_transaction(user_dict: Dict[str, int]) -> None:
             user_balance.save()
 
             logger.debug(f"Операцию id-{transaction_id} удалили")
+
+            return True
     except Exception as e:
         logger.error(f"Ошибка удаления операции в БД: {e}")
+        return False
+
+
+def db_update_transaction(
+    transaction_dict: Dict[str, Union[str, int]], tg_id: int
+) -> bool:
+    """
+    Функция обновляет транзакцию по ее идентификатору из БД.
+
+    :param:
+    :return: True or False
+    """
+    try:
+        user = User.get_or_none(telegram_id=tg_id)
+        category = Category.get(
+            Category.user == user,
+            Category.category_name == transaction_dict["category"],
+        ).id
+        user_date = datetime.strptime(transaction_dict["date"], "%d.%m.%Y").date()
+        with db.atomic():
+            Transaction.update(
+                transaction_date=user_date,
+                amount=transaction_dict["amount"],
+                category=category,
+                description=transaction_dict["descr"],
+            ).where(Transaction.id == transaction_dict["id"]).execute()
+
+            logger.debug(
+                f'{transaction_dict["id"]} | Обновил запись в БД \n{transaction_dict}'
+            )
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка обновления операции в БД: {e}")
+        return False
 
 
 if not os.path.exists("database/bot_database.db"):

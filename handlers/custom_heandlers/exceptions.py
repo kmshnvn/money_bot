@@ -1,5 +1,6 @@
+from aiogram.filters import Text
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
 from database.states import UserState
 from handlers.default_heandlers.start import router
@@ -31,6 +32,22 @@ async def transaction_category_ex(message: Message, state: FSMContext):
     await message.answer(
         f"🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
         f"🔸100\n"
+        f"🔸100.0\n"
+        f"🔸100,0\n"
         f"🔸100.00\n"
-        f"🔸100,00\n",
+        f"🔸100,00\n\n"
+        f"Также можно ввести сумму для калькулятора в формате:\n"
+        f"🔹100+100,0+..",
+    )
+
+
+@router.callback_query(Text(startswith="change_success_transaction"))
+async def transaction_category_ex(callback: CallbackQuery, state: FSMContext):
+    """
+    Функция. Отлавливает кнопку от пользователя и дает ему инстуркцию, что нужно сделать
+    """
+    await callback.message.answer(
+        f"Чтобы изменить операцию нужно нажать на '🧮Новая операция', "
+        f"либо нажмите /transaction\n\n"
+        f"После этого нажмите на кнопку повторно"
     )

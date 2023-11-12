@@ -84,9 +84,12 @@ async def callback_history(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(Text("history_of_transactions"))
 async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Вывод истории транзакций пользователя
+    """
     try:
         logger.info(
-            f"{callback.message.chat.id} - Выводим пользовательcкую дату пользователя"
+            f"{callback.message.chat.id} - Вывод истории транзакций пользователя"
         )
         await state.set_state(UserState.transaction_history)
 
@@ -137,18 +140,27 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
 
         amount = float(transaction.get("amount"))
         summ = amount if amount >= 0 else -amount
+        transaction_date = date.strftime(transaction["transaction_date"], "%d.%m.%Y")
 
         await state.set_data(
             {
-                "id": transaction_id,
-                "user_id": message.chat.id,
-                "summ": amount,
+                "delete_transaction": {
+                    "id": transaction_id,
+                    "user_id": message.chat.id,
+                    "summ": amount,
+                },
+                "transaction_info": {
+                    "transaction_date": transaction_date,
+                    "category_name": transaction.get("category_name"),
+                    "summ": summ,
+                    "description": transaction.get("description"),
+                },
             }
         )
 
         text = (
             f"Выбрана операция\n\n"
-            f'Дата операции: {transaction["transaction_date"]}\n'
+            f"*Дата операции: {transaction_date}*\n"
             f'{summ} ₽ в категории {transaction["category_name"]}\n'
             f'Описание: {transaction["description"]}\n\n'
             f"Удаляем операцию?"
@@ -156,7 +168,6 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
 
         await message.answer(f"{text}", reply_markup=delete_history_kb())
 
-        await state.set_state(UserState.delete_transaction)
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении удаления операции: {ex}")
         await message.answer(
@@ -164,7 +175,62 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
         )
 
 
-@router.callback_query(UserState.delete_transaction, Text("delete_transaction"))
+@router.callback_query(Text(startswith="delete_success_transaction"))
+async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
+    """
+    Удаление операции через callback кнопку
+    """
+    try:
+        logger.info(f"{callback.message.chat.id} - Уточняем удаление операции")
+
+        transaction_id = callback.data.split("-")[1]
+        transaction = db_get_transaction(int(transaction_id))
+
+        if transaction:
+            amount = float(transaction.get("amount"))
+            summ = amount if amount >= 0 else -amount
+            transaction_date = date.strftime(
+                transaction["transaction_date"], "%d.%m.%Y"
+            )
+
+            await state.update_data(
+                {
+                    "delete_transaction": {
+                        "id": transaction_id,
+                        "user_id": callback.message.chat.id,
+                        "summ": amount,
+                    },
+                    "transaction_info": {
+                        "transaction_date": transaction_date,
+                        "category_name": transaction.get("category_name"),
+                        "summ": summ,
+                        "description": transaction.get("description"),
+                    },
+                }
+            )
+
+            text = (
+                f"Выбрана операция\n\n"
+                f"*Дата операции: {transaction_date}*\n"
+                f'{summ} ₽ в категории {transaction["category_name"]}\n'
+                f'Описание: {transaction["description"]}\n\n'
+                f"Удаляем операцию?"
+            )
+
+            await callback.message.answer(f"{text}", reply_markup=delete_history_kb())
+        else:
+            await callback.message.answer(
+                text=f"Операция уже удалена или не существует",
+            )
+
+    except Exception as ex:
+        logger.error(f"Что-то пошло не так при уточнении удаления операции: {ex}")
+        await callback.message.answer(
+            "🤕 Возникла ошибка при уточнении удаления операции. Скоро меня починят"
+        )
+
+
+@router.callback_query(Text("delete_transaction"))
 async def delete_transaction(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Обработчик подтверждения удаления операции.
@@ -173,10 +239,27 @@ async def delete_transaction(callback: CallbackQuery, state: FSMContext) -> None
         logger.info(f"{callback.message.chat.id} - Уточняем удаление операции")
 
         user_dict = await state.get_data()
-        db_delete_transaction(user_dict)
 
-        await callback.message.edit_text(text=f"Удалил", parse_mode="Markdown")
-        await state.set_state(UserState.default)
+        if db_delete_transaction(user_dict["delete_transaction"]):
+            transaction_info = user_dict["transaction_info"]
+            text = (
+                f"✅Операция успешно удалена\n\n"
+                f'*Дата операции: {transaction_info["transaction_date"]}*\n'
+                f'{transaction_info["summ"]} ₽ в категории {transaction_info["category_name"]}\n'
+                f'Описание: {transaction_info["description"]}'
+            )
+
+            user_dict.pop("delete_transaction")
+            user_dict.pop("transaction_info")
+            await state.set_data(user_dict)
+
+            await callback.message.edit_text(text=text, parse_mode="Markdown")
+
+        else:
+            await callback.message.edit_text(
+                text=f"Что-то пошло не так при удалении", parse_mode="Markdown"
+            )
+
     except Exception as ex:
         logger.error(f"Что-то пошло не так при удалении операции: {ex}")
         await callback.message.edit_text(

@@ -85,11 +85,17 @@ def transaction_main_kb(
                 text="⏱️Сегодня", callback_data="change_for_today_date"
             )
         )
+    else:
+        kb.add(
+            InlineKeyboardButton(
+                text="⏱️Вчера", callback_data="change_for_yesterday_date"
+            )
+        )
     kb.adjust(1, 2)
     return kb.as_markup()
 
 
-def user_category_kb(category_list: list) -> InlineKeyboardMarkup:
+def user_category_kb(category_list: list, group_name=None) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for elem in category_list:
         kb.add(
@@ -98,6 +104,15 @@ def user_category_kb(category_list: list) -> InlineKeyboardMarkup:
             )
         )
     kb.adjust(2)
+    if group_name is not None:
+        if group_name == "Expense":
+            kb.row(
+                InlineKeyboardButton(text="💰Нет, это доход💰", callback_data="income")
+            )
+        else:
+            kb.row(
+                InlineKeyboardButton(text="📈Нет, это расход📈", callback_data="expense")
+            )
     kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data=f"back"))
     return kb.as_markup()
 
@@ -128,6 +143,14 @@ def save_category_kb() -> InlineKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
+def update_category_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(text="✅Обновить", callback_data="update_transaction"))
+    kb.add(InlineKeyboardButton(text="Изменить", callback_data="change_transaction"))
+    kb.adjust(1)
+    return kb.as_markup(resize_keyboard=True)
+
+
 def change_transaction_details_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(text="🗓️Дату", callback_data="change_transaction_date"))
@@ -143,6 +166,24 @@ def change_transaction_details_kb() -> InlineKeyboardMarkup:
         )
     )
     kb.add(InlineKeyboardButton(text="⬅️Назад", callback_data="back"))
+    kb.adjust(2)
+    return kb.as_markup()
+
+
+def change_success_transaction_details_kb() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(text="🗓️Дату", callback_data="change_transaction_date"))
+    kb.add(InlineKeyboardButton(text="💰Сумму", callback_data="change_transaction_summ"))
+    kb.add(
+        InlineKeyboardButton(
+            text="🗂️Категорию", callback_data="change_transaction_category"
+        )
+    )
+    kb.add(
+        InlineKeyboardButton(
+            text="🖊️Описание", callback_data="change_transaction_descr"
+        )
+    )
     kb.adjust(2)
     return kb.as_markup()
 
@@ -170,4 +211,19 @@ def group_category_kb() -> InlineKeyboardMarkup:
     kb.add(InlineKeyboardButton(text="Расход", callback_data="expense"))
     kb.add(InlineKeyboardButton(text="В настройки🛠️", callback_data="ready"))
     kb.adjust(2, 1)
+    return kb.as_markup()
+
+
+def change_success_transaction(id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.add(
+        InlineKeyboardButton(
+            text="✏️Изменить", callback_data=f"change_success_transaction-{id}"
+        )
+    )
+    kb.add(
+        InlineKeyboardButton(
+            text="❌Удалить", callback_data=f"delete_success_transaction-{id}"
+        )
+    )
     return kb.as_markup()

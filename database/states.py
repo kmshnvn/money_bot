@@ -37,10 +37,16 @@ class UserState(StatesGroup):
     transaction_new_category = State()
     start_date_transaction = State()
     save_transaction = State()
+    update_transaction = State()
+    change_transaction_category = State()
     change_transaction_details = State()
     change_transaction_details_summ = State()
     change_transaction_details_descr = State()
     change_transaction_details_category = State()
+    change_success_transaction_details = State()
+    change_success_transaction_details_summ = State()
+    change_success_transaction_details_descr = State()
+    change_success_transaction_details_category = State()
 
     # Состояния истории
     main_history = State()

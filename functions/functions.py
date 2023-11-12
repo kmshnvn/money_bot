@@ -106,6 +106,7 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
 
     history_to_remove = []
     for day_history in history[:HISTORY_DISPLAY_LIMIT]:
+        print(day_history)
         user_date = day_history.get("transaction_date")
         if user_date not in date_list:
             date_list.append(user_date)
@@ -141,7 +142,11 @@ def text_of_stat(history_list: Dict) -> str:
     date_list = []
     text = ""
 
-    for history in reversed(history_list):
+    sorted_data = sorted(
+        history_list, key=lambda x: datetime.strptime(x["year_month"], "%Y-%m")
+    )
+
+    for history in sorted_data:
         summ = float(history["amount"])
         year_month = history["year_month"]
         year, month = year_month.split("-")
