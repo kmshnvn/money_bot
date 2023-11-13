@@ -105,12 +105,13 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
     date_list = []
 
     history_to_remove = []
-    for day_history in history[:HISTORY_DISPLAY_LIMIT]:
-        print(day_history)
-        user_date = day_history.get("transaction_date")
+    for day_history in reversed(history[:HISTORY_DISPLAY_LIMIT]):
+        user_date = day_history["transaction_date"]
         if user_date not in date_list:
             date_list.append(user_date)
-            user_date = "Сегодня" if user_date == today_date else user_date
+            user_date = (
+                "Сегодня" if user_date == today_date else user_date.strftime("%d.%m.%Y")
+            )
             text += f"📆*{user_date}*\n\n"
 
         summ = day_history.get("amount")

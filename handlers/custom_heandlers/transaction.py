@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 import re
-from typing import Dict
 
 from fuzzywuzzy import fuzz
 from loguru import logger
@@ -141,7 +140,7 @@ async def new_transaction(message: Message, state: FSMContext):
 
             await state.set_data(
                 {
-                    "date": str(date.today()),
+                    "date": date.today().strftime("%d.%m.%Y"),
                     "group": default_group,
                     "summ": "",
                     "category": "",
@@ -189,10 +188,10 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
 
         not_today = True
         if callback.data == "change_for_today_date":
-            await state.update_data({"date": str(date.today())})
+            await state.update_data({"date": date.today().strftime("%d.%m.%Y")})
         elif callback.data == "change_for_yesterday_date":
             yesterday = date.today() - timedelta(days=1)
-            await state.update_data({"date": str(yesterday)})
+            await state.update_data({"date": yesterday.strftime("%d.%m.%Y")})
 
         group_name = callback.data.title()
 
@@ -205,7 +204,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
         else:
             await state.update_data({"group": group_name})
 
-        if user_date == str(date.today()):
+        if user_date == date.today().strftime("%d.%m.%Y"):
             user_date = "Сегодня"
             not_today = False
 
@@ -330,15 +329,21 @@ async def transaction_category(message: Message, state: FSMContext):
 
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
 
-        user_category = sorted(user_dict[group_name])
+        user_category = user_dict.get(group_name)
 
-        await message.answer(
-            f"Сумма - {user_text}\n\n"
-            f"В какой категории была операция?\n"
-            f"\nЕсли операции нет и нужно добавить - "
-            f"просто введи новую категорию",
-            reply_markup=user_category_kb(user_category, group_name),
-        )
+        if user_category is not None:
+            await message.answer(
+                f"Сумма - {user_text}\n\n"
+                f"В какой категории была операция?\n"
+                f"\nЕсли операции нет и нужно добавить - "
+                f"просто введи новую категорию",
+                reply_markup=user_category_kb(sorted(user_category), group_name),
+            )
+
+        else:
+            await message.answer(
+                f"Категорий еще нет. Введите новую",
+            )
         await state.set_state(UserState.transaction_category)
 
     except Exception as ex:
@@ -384,28 +389,37 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
 
         if user_state == "UserState:change_success_transaction_details":
             group_name = user_dict["old_transaction_info"]["old_group"]
-            user_category = sorted(user_dict[group_name])
+            user_category = user_dict.get(group_name)
 
-            await callback.message.edit_text(
-                f"В какой категории была операция?\n"
-                f"\nЕсли операции нет и нужно добавить - "
-                f"просто введи новую категорию",
-                reply_markup=user_category_kb(user_category),
-            )
+            if user_category is not None:
+                await callback.message.edit_text(
+                    f"В какой категории была операция?\n"
+                    f"\nЕсли операции нет и нужно добавить - "
+                    f"просто введи новую категорию",
+                    reply_markup=user_category_kb(sorted(user_category)),
+                )
 
+            else:
+                await callback.message.edit_text(
+                    f"Категорий еще нет. Введите новую",
+                )
             await state.set_state(UserState.change_transaction_category)
 
         else:
             group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
-            user_category = sorted(user_dict[group_name])
+            user_category = user_dict.get(group_name)
 
-            await callback.message.edit_text(
-                f"В какой категории была операция?\n"
-                f"\nЕсли операции нет и нужно добавить - "
-                f"просто введи новую категорию",
-                reply_markup=user_category_kb(user_category, group_name),
-            )
-
+            if user_category is not None:
+                await callback.message.edit_text(
+                    f"В какой категории была операция?\n"
+                    f"\nЕсли операции нет и нужно добавить - "
+                    f"просто введи новую категорию",
+                    reply_markup=user_category_kb(sorted(user_category), group_name),
+                )
+            else:
+                await callback.message.edit_text(
+                    f"Категорий еще нет. Введите новую",
+                )
             await state.set_state(UserState.transaction_category)
 
     except Exception as ex:
@@ -427,10 +441,18 @@ async def transaction_description(message: Message, state: FSMContext):
         user_dict = await state.get_data()
 
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
-        matching_category = next(
-            (elem for elem in user_dict[group_name] if fuzz.ratio(category, elem) > 80),
-            None,
-        )
+
+        matching_category = None
+        if user_dict.get(group_name) is not None:
+            matching_category = next(
+                (
+                    elem
+                    for elem in user_dict[group_name]
+                    if fuzz.ratio(category, elem) > 80
+                ),
+                None,
+            )
+
         if matching_category is None:
             await state.update_data({"category": category})
 
@@ -519,12 +541,17 @@ async def transaction_new_category(callback: CallbackQuery, state: FSMContext):
         logger.debug(f"Пользователь {callback.message.chat.id}. Запись новой категории")
 
         user_dict = await state.get_data()
+        print(user_dict)
 
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
         new_category = {group_name: user_dict["category"]}
 
         category_list = user_dict.get(group_name)
-        category_list.append(new_category[group_name])
+        if category_list is not None:
+            category_list.append(new_category[group_name])
+        else:
+            category_list = [new_category[group_name]]
+
         await state.update_data({group_name: category_list})
 
         db_create_category(callback.message.chat.id, new_category)
@@ -811,7 +838,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
 
             user_dict = await state.get_data()
 
-            if user_dict.get("date") == str(date.today()):
+            if user_dict.get("date") == date.today().strftime("%d.%m.%Y"):
                 str_date = "Сегодня"
                 not_today = False
             else:
@@ -889,7 +916,7 @@ async def callback_change_unwritten_category(
             summ = amount if amount >= 0 else -amount
             group = "Income" if amount >= 0 else "Expense"
             transaction_date = date.strftime(
-                transaction["transaction_date"], "%d.%m.%Y"
+                transaction["transaction_date"], "%Y-%m-%d"
             )
 
             await state.update_data(

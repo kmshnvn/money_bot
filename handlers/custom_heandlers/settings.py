@@ -18,7 +18,7 @@ from keyboards.inline_keyboards import (
 
 from keyboards.reply_keyboards import (
     default_category_kb,
-    add_transaction_kb,
+    main_kb,
 )
 
 
@@ -87,7 +87,6 @@ async def category_settings(message: Message, state: FSMContext):
         )
 
 
-# Добавление новых категорий
 @router.message(
     UserState.settings, F.text.contains("Использовать стандартные категории")
 )
@@ -115,8 +114,9 @@ async def default_category_settings(message: Message, state: FSMContext):
         await message.answer(
             text=f"Отлично, мы настроили категории. "
             f"В дальнейшем их можно будет редактировать в /settings\n"
-            f"Сейчас создадим свою первую операцию",
-            reply_markup=add_transaction_kb(),
+            f"Сейчас создадим свою первую операцию\n"
+            f"Для этого нажми на кнопку '🧮Новая операция'",
+            reply_markup=main_kb(),
         )
         await state.set_state(UserState.default)
     except Exception as ex:

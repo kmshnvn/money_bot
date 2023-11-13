@@ -202,7 +202,7 @@ def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> int:
             category = Category.get(
                 Category.user == user, Category.category_name == user_dict["category"]
             ).id
-            user_date = datetime.strptime(user_dict["date"], "%Y-%m-%d").date()
+            user_date = datetime.strptime(user_dict["date"], "%d.%m.%Y").date()
 
             transaction_summ = user_dict["summ"]
 
@@ -241,7 +241,7 @@ def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
             .where(
                 Transaction.user == user,
             )
-            .order_by(Transaction.transaction_date)
+            .order_by(-Transaction.transaction_date)
             .limit(30)
         )
 

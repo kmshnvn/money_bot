@@ -104,16 +104,17 @@ def user_category_kb(category_list: list, group_name=None) -> InlineKeyboardMark
             )
         )
     kb.adjust(2)
+    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data=f"back"))
     if group_name is not None:
         if group_name == "Expense":
-            kb.row(
+            kb.add(
                 InlineKeyboardButton(text="💰Нет, это доход💰", callback_data="income")
             )
         else:
-            kb.row(
+            kb.add(
                 InlineKeyboardButton(text="📈Нет, это расход📈", callback_data="expense")
             )
-    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data=f"back"))
+
     return kb.as_markup()
 
 
