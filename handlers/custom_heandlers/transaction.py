@@ -916,7 +916,7 @@ async def callback_change_unwritten_category(
             summ = amount if amount >= 0 else -amount
             group = "Income" if amount >= 0 else "Expense"
             transaction_date = date.strftime(
-                transaction["transaction_date"], "%Y-%m-%d"
+                transaction["transaction_date"], "%d.%m.%Y"
             )
 
             await state.update_data(
