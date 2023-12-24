@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import re
 
 from fuzzywuzzy import fuzz
@@ -84,7 +84,8 @@ async def check_change_transaction(user_data: dict):
             amount = -user_data["change_summ"]
             summ = user_data["change_summ"]
     else:
-        amount, summ = user_data["change_summ"]
+        amount = user_data["change_summ"]
+        summ = user_data["change_summ"]
 
     transaction_dict = {
         "id": user_data["id"],
@@ -172,7 +173,14 @@ async def new_transaction(message: Message, state: FSMContext):
 @router.callback_query(
     UserState.transaction_summ,
     Text(
-        text=["income", "expense", "change_for_today_date", "change_for_yesterday_date"]
+        text=[
+            "income",
+            "expense",
+            "change_for_today_date",
+            "change_for_yesterday_date",
+            "change_for_next_date",
+            "change_for_past_date",
+        ]
     ),
 )
 @router.callback_query(UserState.transaction_category, Text("back"))
@@ -192,6 +200,16 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
         elif callback.data == "change_for_yesterday_date":
             yesterday = date.today() - timedelta(days=1)
             await state.update_data({"date": yesterday.strftime("%d.%m.%Y")})
+        elif callback.data == "change_for_next_date":
+            user_data = await state.get_data()
+            user_date = datetime.strptime(user_data["date"], "%d.%m.%Y").date()
+            past_day = user_date + timedelta(days=1)
+            await state.update_data({"date": past_day.strftime("%d.%m.%Y")})
+        elif callback.data == "change_for_past_date":
+            user_data = await state.get_data()
+            user_date = datetime.strptime(user_data["date"], "%d.%m.%Y").date()
+            next_date = user_date - timedelta(days=1)
+            await state.update_data({"date": next_date.strftime("%d.%m.%Y")})
 
         group_name = callback.data.title()
 
@@ -361,6 +379,7 @@ async def transaction_category(message: Message, state: FSMContext):
 
 
 @router.callback_query(UserState.transaction_new_category, Text("back"))
+@router.callback_query(UserState.transaction_description, Text("back"))
 @router.callback_query(
     UserState.change_transaction_details, Text("change_transaction_category")
 )
@@ -376,7 +395,7 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
     """
     try:
         logger.debug(
-            f"Пользователь {callback.message.chat.id} - Сумма {callback.message.text}. "
+            f"Пользователь {callback.message.chat.id}"
             f"Уточняем категорию операции"
         )
 
@@ -541,7 +560,6 @@ async def transaction_new_category(callback: CallbackQuery, state: FSMContext):
         logger.debug(f"Пользователь {callback.message.chat.id}. Запись новой категории")
 
         user_dict = await state.get_data()
-        print(user_dict)
 
         group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
         new_category = {group_name: user_dict["category"]}
@@ -643,9 +661,7 @@ async def callback_change_success_transaction_check(
         logger.debug(
             f"Пользователь {callback.message.chat.id}. Проверка операции перед обновлением информации в БД"
         )
-
         user_data = await state.get_data()
-
         transaction_dict = await check_change_transaction(user_data)
 
         await state.update_data({"transaction_dict": transaction_dict})
@@ -887,8 +903,10 @@ async def callback_change_unwritten_category(
     )
 
     user_state = await state.get_state()
+    logger.debug("user state - ", user_state)
 
     if user_state == "UserState:save_transaction":
+        logger.debug("UserState:save_transaction")
         await state.set_state(UserState.change_transaction_details)
 
         await callback.message.edit_text(
@@ -900,6 +918,8 @@ async def callback_change_unwritten_category(
         user_state == "UserState:update_transaction"
         or user_state == "UserState:change_transaction_category"
     ):
+        logger.debug("UserState:update_transaction or UserState:change_transaction_category")
+
         await state.set_state(UserState.change_success_transaction_details)
 
         await callback.message.edit_text(
@@ -908,8 +928,8 @@ async def callback_change_unwritten_category(
         )
 
     else:
+        logger.debug("else")
         transaction_id = callback.data.split("-")[1]
-
         transaction = db_get_transaction(int(transaction_id))
         if transaction:
             amount = float(transaction.get("amount"))
@@ -973,7 +993,6 @@ async def callback_change_unwritten_category(
     )
 
     user_state = await state.get_state()
-
     if user_state == "UserState:change_success_transaction_details":
         await state.set_state(UserState.change_success_transaction_details_summ)
     elif user_state == "UserState:change_transaction_details":

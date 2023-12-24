@@ -82,16 +82,27 @@ def transaction_main_kb(
     if not_today:
         kb.add(
             InlineKeyboardButton(
+                text="⏪️", callback_data="change_for_past_date"
+            )
+        )
+        kb.add(
+            InlineKeyboardButton(
                 text="⏱️Сегодня", callback_data="change_for_today_date"
             )
         )
+        kb.add(
+            InlineKeyboardButton(
+                text="⏩️", callback_data="change_for_next_date"
+            )
+        )
+        kb.adjust(1, 1, 3)
     else:
         kb.add(
             InlineKeyboardButton(
                 text="⏱️Вчера", callback_data="change_for_yesterday_date"
             )
         )
-    kb.adjust(1, 2)
+        kb.adjust(1, 2)
     return kb.as_markup()
 
 
@@ -120,6 +131,7 @@ def user_category_kb(category_list: list, group_name=None) -> InlineKeyboardMark
 
 def transaction_descr_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
+    kb.add(InlineKeyboardButton(text="⬅️Назад", callback_data="back"))
     kb.add(
         InlineKeyboardButton(
             text="Без описания", callback_data="transaction_without_descr"

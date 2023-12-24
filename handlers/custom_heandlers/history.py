@@ -136,37 +136,42 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
         logger.info(f"{message.chat.id} - Уточняем удаление операции")
 
         transaction_id = message.text[4:]
-        transaction = db_get_transaction(transaction_id)
+        transaction = db_get_transaction(transaction_id, message.chat.id)
 
-        amount = float(transaction.get("amount"))
-        summ = amount if amount >= 0 else -amount
-        transaction_date = date.strftime(transaction["transaction_date"], "%d.%m.%Y")
+        if transaction:
+            amount = float(transaction.get("amount"))
+            summ = amount if amount >= 0 else -amount
+            transaction_date = date.strftime(transaction["transaction_date"], "%d.%m.%Y")
 
-        await state.set_data(
-            {
-                "delete_transaction": {
-                    "id": transaction_id,
-                    "user_id": message.chat.id,
-                    "summ": amount,
-                },
-                "transaction_info": {
-                    "transaction_date": transaction_date,
-                    "category_name": transaction.get("category_name"),
-                    "summ": summ,
-                    "description": transaction.get("description"),
-                },
-            }
-        )
+            await state.set_data(
+                {
+                    "delete_transaction": {
+                        "id": transaction_id,
+                        "user_id": message.chat.id,
+                        "summ": amount,
+                    },
+                    "transaction_info": {
+                        "transaction_date": transaction_date,
+                        "category_name": transaction.get("category_name"),
+                        "summ": summ,
+                        "description": transaction.get("description"),
+                    },
+                }
+            )
 
-        text = (
-            f"Выбрана операция\n\n"
-            f"*Дата операции: {transaction_date}*\n"
-            f'{summ} ₽ в категории {transaction["category_name"]}\n'
-            f'Описание: {transaction["description"]}\n\n'
-            f"Удаляем операцию?"
-        )
+            text = (
+                f"Выбрана операция\n\n"
+                f"*Дата операции: {transaction_date}*\n"
+                f'{summ} ₽ в категории {transaction["category_name"]}\n'
+                f'Описание: {transaction["description"]}\n\n'
+                f"Удаляем операцию?"
+            )
 
-        await message.answer(f"{text}", reply_markup=delete_history_kb())
+            await message.answer(f"{text}", reply_markup=delete_history_kb())
+        else:
+            await message.answer(
+                text=f"Операция уже удалена или не существует",
+            )
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении удаления операции: {ex}")
@@ -184,7 +189,7 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
         logger.info(f"{callback.message.chat.id} - Уточняем удаление операции")
 
         transaction_id = callback.data.split("-")[1]
-        transaction = db_get_transaction(int(transaction_id))
+        transaction = db_get_transaction(int(transaction_id), callback.message.chat.id)
 
         if transaction:
             amount = float(transaction.get("amount"))

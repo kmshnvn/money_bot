@@ -277,18 +277,22 @@ def db_get_custom_date_history(
         logger.error(f"{tg_id} | Ошибка при получении истории транзакций: {ex}")
 
 
-def db_get_transaction(transaction_id: int) -> Dict[str, Union[int, str]]:
+def db_get_transaction(transaction_id: int, tg_id: int) -> Dict[str, Union[int, str]]:
     """
     Функция получает информацию о транзакции по ее идентификатору из БД.
 
-    :param transaction_id:
+    :param transaction_id: id транзакции
+    :param tg_id: телеграм id пользователя
     :return:
     """
     try:
+        user = User.get_or_none(telegram_id=tg_id)
+
         query = (
             Transaction.select(Transaction, Category.category_name)
             .join(Category)
             .where(
+                Transaction.user == user,
                 Transaction.id == transaction_id,
             )
             .dicts()
