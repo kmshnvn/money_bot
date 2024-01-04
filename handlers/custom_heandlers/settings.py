@@ -43,18 +43,18 @@ async def category_settings(message: Message, state: FSMContext):
             logger.info("Категорий нет")
 
             await message.answer(
-                text=f"Для быстрой настройки у меня есть стандартные категории трат, "
-                f"чтобы использовать их просто нажми на кнопку 'Использовать стандартный набор'"
-                f"\n\n*Стандартный набор расходов:*"
-                f"\nТранспорт🚌"
-                f"\nПродукты🥦"
-                f"\nКафе🍕"
-                f"\nДом🏡"
-                f"\nПутешествия✈️"
-                f"\nОдежда👕"
-                f"\nКрасота💆‍"
-                f"\n\n*Категории дохода:*"
-                f"\nЗарплата💰",
+                text="Для быстрой настройки у меня есть стандартные категории трат, "
+                "чтобы использовать их просто нажми на кнопку 'Использовать стандартный набор'"
+                "\n\n*Стандартный набор расходов:*"
+                "\nТранспорт🚌"
+                "\nПродукты🥦"
+                "\nКафе🍕"
+                "\nДом🏡"
+                "\nПутешествия✈️"
+                "\nОдежда👕"
+                "\nКрасота💆‍"
+                "\n\n*Категории дохода:*"
+                "\nЗарплата💰",
                 reply_markup=default_category_kb(),
             )
         else:
@@ -112,10 +112,10 @@ async def default_category_settings(message: Message, state: FSMContext):
 
         db_create_category(message.chat.id, default_category)
         await message.answer(
-            text=f"Отлично, мы настроили категории. "
-            f"В дальнейшем их можно будет редактировать в /settings\n"
-            f"Сейчас создадим свою первую операцию\n"
-            f"Для этого нажми на кнопку '🧮Новая операция'",
+            text="Отлично, мы настроили категории. "
+            "В дальнейшем их можно будет редактировать в /settings\n"
+            "Сейчас создадим свою первую операцию\n"
+            "Для этого нажми на кнопку '🧮Новая операция'",
             reply_markup=main_kb(),
         )
         await state.set_state(UserState.default)
@@ -137,7 +137,7 @@ async def custom_category_settings(callback: CallbackQuery, state: FSMContext):
 
         await state.set_state(UserState.custom_category_group)
         await callback.message.edit_text(
-            f"К чему относится категория?",
+            "К чему относится категория?",
             reply_markup=group_category_kb(),
         )
     except Exception as ex:
@@ -163,7 +163,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             await state.update_data({"group": "Expense"})
 
         await callback.message.edit_text(
-            f"Введите название категории",
+            "Введите название категории",
         )
 
         await state.set_state(UserState.custom_category)
@@ -186,7 +186,7 @@ async def category_settings_complete(callback: CallbackQuery, state: FSMContext)
         await state.set_state(UserState.default)
 
         await callback.message.edit_text(
-            f"Отлично, категории настроены",
+            "Отлично, категории настроены",
         )
         await category_settings(callback.message, state)
 
@@ -206,7 +206,7 @@ async def add_new_category_settings(message: Message, state: FSMContext):
         logger.info("Уточняем сохранение категории + запись во временное хранилище")
 
         if len(message.text) > 20:
-            await message.answer(f"Название категории не может превышать 20 символов")
+            await message.answer("Название категории не может превышать 20 символов")
         else:
             data = await state.get_data()
             group = data["group"]
@@ -216,7 +216,7 @@ async def add_new_category_settings(message: Message, state: FSMContext):
 
             if category.title() in data[group]:
                 await message.answer(
-                    f"Категория уже есть\n" f"Нужно ввести другую",
+                    "Категория уже есть\n" f"Нужно ввести другую",
                 )
             elif category.title() in data[another_group]:
                 text_another_name = (
@@ -273,7 +273,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             f"✅Сохранил",
         )
         await callback.message.answer(
-            f"Теперь следующая. \nК чему относится категория?",
+            "Теперь следующая. \nК чему относится категория?",
             reply_markup=group_category_kb(),
         )
         await state.set_state(UserState.custom_category_group)
@@ -304,7 +304,7 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
         await state.update_data({"all_categories": category_list})
 
         await callback.message.edit_text(
-            text=f"Выберите категорию для редактирования",
+            text="Выберите категорию для редактирования",
             reply_markup=user_category_kb(category_list),
         )
         if callback.data == "delete_category":
@@ -330,7 +330,7 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
 
         category = callback.data.split(":")[1]
         await callback.message.edit_text(
-            text=f"Напиши новое название для категории. Смайлики приветствуются🤩",
+            text="Напиши новое название для категории. Смайлики приветствуются🤩",
         )
 
         await state.update_data({"last_name": category})

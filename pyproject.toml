@@ -18,6 +18,9 @@ black = "^23.9.1"
 flake8 = "^6.1.0"
 fuzzywuzzy = "^0.18.0"
 python-levenshtein = "^0.23.0"
+celery = "^5.3.6"
+plotly = "^5.18.0"
+kaleido = "0.2.1"
 
 
 [build-system]

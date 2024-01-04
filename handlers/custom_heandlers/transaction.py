@@ -3,7 +3,6 @@ import re
 
 from fuzzywuzzy import fuzz
 from loguru import logger
-
 from aiogram.filters import Command, Text
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
@@ -155,9 +154,9 @@ async def new_transaction(message: Message, state: FSMContext):
 
             await message.answer(
                 text=(
-                    text + f"Записываю *расходную операцию.*\n"
-                    f"Дата - Сегодня\n\n"
-                    f"Сколько денег потратили?"
+                    text + "Записываю *расходную операцию.*\n"
+                    "Дата - Сегодня\n\n"
+                    "Сколько денег потратили?"
                 ),
                 reply_markup=transaction_main_kb(default_group),
             )
@@ -310,7 +309,7 @@ async def process_simple_calendar(
                     await callback_transaction_check(callback_query, state)
                 else:
                     await callback_query.message.edit_text(
-                        f"Что-то пошло не так при выборе даты, скоро все исправим😵‍💫",
+                        "Что-то пошло не так при выборе даты, скоро все исправим😵‍💫",
                     )
 
     except Exception as ex:
@@ -360,21 +359,21 @@ async def transaction_category(message: Message, state: FSMContext):
 
         else:
             await message.answer(
-                f"Категорий еще нет. Введите новую",
+                "Категорий еще нет. Введите новую",
             )
         await state.set_state(UserState.transaction_category)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке: {ex}")
         await message.answer(
-            f"🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
-            f"🔸100\n"
-            f"🔸100.0\n"
-            f"🔸100,0\n"
-            f"🔸100.00\n"
-            f"🔸100,00\n\n"
-            f"Также можно ввести сумму для калькулятора в формате:\n"
-            f"🔹100+100,0+..",
+            "🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
+            "🔸100\n"
+            "🔸100.0\n"
+            "🔸100,0\n"
+            "🔸100.00\n"
+            "🔸100,00\n\n"
+            "Также можно ввести сумму для калькулятора в формате:\n"
+            "🔹100+100,0+..",
         )
 
 
@@ -395,8 +394,7 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
     """
     try:
         logger.debug(
-            f"Пользователь {callback.message.chat.id}"
-            f"Уточняем категорию операции"
+            f"Пользователь {callback.message.chat.id}" f"Уточняем категорию операции"
         )
 
         if callback.data in ["income", "expense"]:
@@ -412,15 +410,15 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
 
             if user_category is not None:
                 await callback.message.edit_text(
-                    f"В какой категории была операция?\n"
-                    f"\nЕсли операции нет и нужно добавить - "
-                    f"просто введи новую категорию",
+                    "В какой категории была операция?\n"
+                    "\nЕсли операции нет и нужно добавить - "
+                    "просто введи новую категорию",
                     reply_markup=user_category_kb(sorted(user_category)),
                 )
 
             else:
                 await callback.message.edit_text(
-                    f"Категорий еще нет. Введите новую",
+                    "Категорий еще нет. Введите новую",
                 )
             await state.set_state(UserState.change_transaction_category)
 
@@ -430,14 +428,14 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
 
             if user_category is not None:
                 await callback.message.edit_text(
-                    f"В какой категории была операция?\n"
-                    f"\nЕсли операции нет и нужно добавить - "
-                    f"просто введи новую категорию",
+                    "В какой категории была операция?\n"
+                    "\nЕсли операции нет и нужно добавить - "
+                    "просто введи новую категорию",
                     reply_markup=user_category_kb(sorted(user_category), group_name),
                 )
             else:
                 await callback.message.edit_text(
-                    f"Категорий еще нет. Введите новую",
+                    "Категорий еще нет. Введите новую",
                 )
             await state.set_state(UserState.transaction_category)
 
@@ -495,8 +493,8 @@ async def transaction_description(message: Message, state: FSMContext):
                 await transaction_check_without_descr(message, state)
             else:
                 await message.answer(
-                    f"Такая категория уже есть в вашем списке\n"
-                    f"Добавьте описание операции (необязательно)",
+                    text="Такая категория уже есть в вашем списке\n"
+                    "Добавьте описание операции (необязательно)",
                     reply_markup=transaction_descr_kb(),
                 )
 
@@ -538,7 +536,7 @@ async def transaction_callback_description(callback: CallbackQuery, state: FSMCo
         else:
             await state.update_data({"category": category})
             await callback.message.edit_text(
-                f"Добавьте описание операции (необязательно)",
+                text="Добавьте описание операции (необязательно)",
                 reply_markup=transaction_descr_kb(),
             )
 
@@ -790,7 +788,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.message.edit_text(
                 text=(
-                    f"🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
+                    "🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
                 ),
             )
             await state.set_state(UserState.transaction_summ)
@@ -873,7 +871,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.message.edit_text(
                 text=(
-                    f"🤕 Произошла ошибка при записи транзакции. Мы скоро все исправим!"
+                    "🤕 Произошла ошибка при записи транзакции. Мы скоро все исправим!"
                 ),
             )
             await state.set_state(UserState.transaction_summ)
@@ -903,14 +901,14 @@ async def callback_change_unwritten_category(
     )
 
     user_state = await state.get_state()
-    logger.debug("user state - ", user_state)
+    logger.debug(f"user state - {user_state}")
 
     if user_state == "UserState:save_transaction":
         logger.debug("UserState:save_transaction")
         await state.set_state(UserState.change_transaction_details)
 
         await callback.message.edit_text(
-            text=f"Что будем менять?",
+            text="Что будем менять?",
             reply_markup=change_transaction_details_kb(),
         )
 
@@ -918,19 +916,21 @@ async def callback_change_unwritten_category(
         user_state == "UserState:update_transaction"
         or user_state == "UserState:change_transaction_category"
     ):
-        logger.debug("UserState:update_transaction or UserState:change_transaction_category")
+        logger.debug(
+            "UserState:update_transaction or UserState:change_transaction_category"
+        )
 
         await state.set_state(UserState.change_success_transaction_details)
 
         await callback.message.edit_text(
-            text=f"Что будем менять?",
+            text="Что будем менять?",
             reply_markup=change_transaction_details_kb(),
         )
 
     else:
         logger.debug("else")
         transaction_id = callback.data.split("-")[1]
-        transaction = db_get_transaction(int(transaction_id))
+        transaction = db_get_transaction(int(transaction_id), callback.message.chat.id)
         if transaction:
             amount = float(transaction.get("amount"))
             summ = amount if amount >= 0 else -amount
@@ -971,7 +971,7 @@ async def callback_change_unwritten_category(
             await state.set_state(UserState.change_success_transaction_details)
         else:
             await callback.message.answer(
-                text=f"Операция уже удалена или не существует",
+                text="Операция уже удалена или не существует",
             )
 
 
@@ -999,7 +999,7 @@ async def callback_change_unwritten_category(
         await state.set_state(UserState.change_transaction_details_summ)
 
     await callback.message.edit_text(
-        text=f"Введите новую сумму",
+        text="Введите новую сумму",
     )
 
 
@@ -1041,14 +1041,14 @@ async def transaction_category(message: Message, state: FSMContext):
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке: {ex}")
         await message.answer(
-            f"🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
-            f"🔸100\n"
-            f"🔸100.0\n"
-            f"🔸100,0\n"
-            f"🔸100.00\n"
-            f"🔸100,00\n\n"
-            f"Также можно ввести сумму для калькулятора в формате:\n"
-            f"🔹100+100,0+..",
+            "🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
+            "🔸100\n"
+            "🔸100.0\n"
+            "🔸100,0\n"
+            "🔸100.00\n"
+            "🔸100,00\n\n"
+            "Также можно ввести сумму для калькулятора в формате:\n"
+            "🔹100+100,0+..",
         )
 
 
@@ -1066,7 +1066,7 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
         f"Пользователь {callback.message.chat.id} - Уточняем новое описание операии"
     )
     await callback.message.edit_text(
-        text=f"Введите описание операции",
+        text="Введите описание операции",
     )
 
     user_state = await state.get_state()

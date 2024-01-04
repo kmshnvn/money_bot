@@ -7,6 +7,7 @@ from aiogram.types import Message
 from database.database import db_get_main_statistic
 from database.model import User, Balance, Account
 from database.states import UserState
+from functions.commands import check_delete_transaction, change_transaction_from_history
 from keyboards.reply_keyboards import main_kb, start_kb
 
 router = Router()
@@ -24,6 +25,10 @@ async def bot_start(message: Message, state: FSMContext) -> None:
 
     logger.info(f"{message.chat.id} - команда start")
 
+    split_text = ""
+    if len(message.text.split(" ")) == 2:
+        split_text = message.text.split(" ")[1]
+
     if not User.get_or_none(telegram_id=message.from_user.id):
         user = User.create(
             username=message.from_user.full_name, telegram_id=message.chat.id
@@ -39,6 +44,12 @@ async def bot_start(message: Message, state: FSMContext) -> None:
             f"\nНачнем с категорий трат",
             reply_markup=start_kb(),
         )
+        await state.set_state(UserState.default)
+
+    elif split_text.startswith("del"):
+        await check_delete_transaction(message, state, split_text)
+    elif split_text.startswith("change"):
+        await change_transaction_from_history(message, state, split_text)
     else:
         logger.info("Такой id уже есть. Базы не стал создавать")
 
@@ -49,8 +60,7 @@ async def bot_start(message: Message, state: FSMContext) -> None:
             text=f"{message.from_user.first_name}, вот твоя статистика:\n" f"{text}",
             reply_markup=main_kb(),
         )
-
-    await state.set_state(UserState.default)
+        await state.set_state(UserState.default)
 
 
 def get_statistic_text(user_transactions) -> str:

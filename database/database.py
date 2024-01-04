@@ -241,7 +241,7 @@ def db_get_history(tg_id: int) -> List[Dict[str, Union[str, int, float]]]:
             .where(
                 Transaction.user == user,
             )
-            .order_by(-Transaction.transaction_date)
+            .order_by(Transaction.transaction_date.desc(), Transaction.id.desc())
             .limit(30)
         )
 

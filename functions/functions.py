@@ -1,9 +1,11 @@
 from datetime import date, datetime, timedelta
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 
+from aiogram.types import InputMediaPhoto
 from loguru import logger
+from pydantic.types import Decimal
 
-from config_data.config import MONTH_NAME
+from config_data.config import MONTH_NAME, BOT_NAME
 
 HISTORY_DISPLAY_LIMIT = 15
 
@@ -112,28 +114,32 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
             user_date = (
                 "Сегодня" if user_date == today_date else user_date.strftime("%d.%m.%Y")
             )
-            text += f"📆*{user_date}*\n\n"
+            text += f"📆*{user_date}*\n-----------\n"
 
         summ = day_history.get("amount")
         descr = day_history.get("description")
         history_id = day_history.get("id")
         category = day_history.get("category_name")
 
+        text += f"   {float(summ)} ₽ | *{category}*\n"
+        if descr != "":
+            text += f"   Описание: {descr}\n"
+
         text += (
-            f"{float(summ)} ₽ | *{category}*\n"
-            f"Описание: {descr}\n"
-            f"(Удалить /del{history_id})\n\n"
+            f"   ✏️\n"
+            f"   [Изменить](https://telegram.me/{BOT_NAME}?start=change{history_id})\n"
+            f"   [Удалить](https://telegram.me/{BOT_NAME}?start=del{history_id})\n"
+            f"-----------\n"
         )
 
         history_to_remove.append(day_history)
 
     for item in history_to_remove:
         history.remove(item)
-
     return text
 
 
-def text_of_stat(history_list: Dict) -> str:
+def text_of_stat(history_list: Dict) -> Tuple[str, Dict[str, Dict[str, int]]]:
     """
     Создает текст статистики на основе списка истории.
 
@@ -141,6 +147,7 @@ def text_of_stat(history_list: Dict) -> str:
     :return: Итоговый текст статистики.
     """
     date_list = []
+    data_for_graphic = {}
     text = ""
 
     sorted_data = sorted(
@@ -148,18 +155,77 @@ def text_of_stat(history_list: Dict) -> str:
     )
 
     for history in sorted_data:
-        summ = float(history["amount"])
         year_month = history["year_month"]
         year, month = year_month.split("-")
         month_name = MONTH_NAME[int(month)]
 
         if year_month not in date_list:
+            if text != "":
+                text = text_of_stat_generate(text, income_stat, expense_stat)
+
             text += f"\n🔹*{month_name} {year}*\n\n"
             date_list.append(year_month)
+            income_stat = 0
+            expense_stat = 0
+
+        summ = float(history["amount"])
+        if summ > 0:
+            income_stat += summ
+        else:
+            expense_stat += summ
 
         text += f"  🔸{history['category_name']}: {summ} ₽\n"
+        data_for_graphic[month_name] = {"Income": income_stat, "Expense": expense_stat}
+
+    text = text_of_stat_generate(text, income_stat, expense_stat)
 
     if not text:
         text = f"\nВ этот период трат не было"
 
+    return text, data_for_graphic
+
+
+def text_of_stat_generate(text, income_stat, expense_stat):
+    text += (
+        f"\n  💰Всего доход: {income_stat}\n"
+        f"  🔻Всего расход: {expense_stat}\n"
+        f"  🔰Осталось: {income_stat + expense_stat}\n"
+    )
     return text
+
+
+def generate_media_message(media_list, photos, text):
+    if len(media_list) == 0:
+        media_list.append(InputMediaPhoto(media=photos, caption=text))
+    else:
+        media_list.append(InputMediaPhoto(media=photos))
+
+    return media_list
+
+
+def generate_dict_for_graphics(
+    history_list: List[Dict[str, Union[str, Decimal]]]
+) -> Dict[str, Dict[str, Union[str, Decimal]]]:
+    graph_dict_expense = {}
+    graph_dict_income = {}
+
+    for elem in history_list:
+        summ = elem["amount"]
+        category_name = elem["category_name"]
+
+        if summ < 0:
+            amount = -summ
+
+            if not category_name in graph_dict_expense:
+                graph_dict_expense[category_name] = amount
+            else:
+                graph_dict_expense[category_name] += amount
+        else:
+            amount = summ
+
+            if not category_name in graph_dict_income:
+                graph_dict_income[category_name] = amount
+            else:
+                graph_dict_income[category_name] += amount
+
+    return {"Доход": graph_dict_income, "Расход": graph_dict_expense}

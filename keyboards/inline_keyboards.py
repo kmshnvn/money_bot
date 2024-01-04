@@ -80,21 +80,13 @@ def transaction_main_kb(
         )
     )
     if not_today:
-        kb.add(
-            InlineKeyboardButton(
-                text="⏪️", callback_data="change_for_past_date"
-            )
-        )
+        kb.add(InlineKeyboardButton(text="⏪️", callback_data="change_for_past_date"))
         kb.add(
             InlineKeyboardButton(
                 text="⏱️Сегодня", callback_data="change_for_today_date"
             )
         )
-        kb.add(
-            InlineKeyboardButton(
-                text="⏩️", callback_data="change_for_next_date"
-            )
-        )
+        kb.add(InlineKeyboardButton(text="⏩️", callback_data="change_for_next_date"))
         kb.adjust(1, 1, 3)
     else:
         kb.add(
@@ -115,7 +107,7 @@ def user_category_kb(category_list: list, group_name=None) -> InlineKeyboardMark
             )
         )
     kb.adjust(2)
-    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data=f"back"))
+    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data="back"))
     if group_name is not None:
         if group_name == "Expense":
             kb.add(

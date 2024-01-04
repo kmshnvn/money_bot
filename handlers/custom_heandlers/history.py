@@ -3,7 +3,6 @@ from typing import Tuple, Dict
 
 from aiogram import F
 from loguru import logger
-
 from aiogram.filters import Command, Text
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -18,6 +17,7 @@ from database.database import (
 )
 from functions import simple_cal_callback, SimpleCalendar
 from functions.functions import create_history_text, text_of_stat
+from functions.graphics import generate_standard_graphics
 from handlers.default_heandlers.start import router
 from keyboards.inline_keyboards import (
     change_date,
@@ -141,7 +141,9 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
         if transaction:
             amount = float(transaction.get("amount"))
             summ = amount if amount >= 0 else -amount
-            transaction_date = date.strftime(transaction["transaction_date"], "%d.%m.%Y")
+            transaction_date = date.strftime(
+                transaction["transaction_date"], "%d.%m.%Y"
+            )
 
             await state.set_data(
                 {
@@ -283,10 +285,18 @@ async def month_statistic(callback: CallbackQuery, state: FSMContext) -> None:
         history_list, start_date, end_date = db_get_history_transaction(
             tg_id=callback.message.chat.id,
         )
-        text = text_of_stat(history_list)
 
-        await callback.message.edit_text(
-            text=f"История с {start_date} по {end_date}:\n{text}",
+        text, data_for_graphic = text_of_stat(history_list)
+        new_text = f"История с {start_date} по {end_date}:\n{text}"
+        media_graph = generate_standard_graphics(
+            history_list=history_list,
+            data_for_graphic=data_for_graphic,
+            text=new_text,
+        )
+
+        await callback.message.answer_media_group(media=media_graph)
+        await callback.message.answer(
+            text="Выше ты видишь свою аналитику.то делаем дальше?\nЧто делаем дальше?",
             reply_markup=change_date(),
         )
         await state.set_state(UserState.statistic_history)
@@ -406,9 +416,18 @@ async def month_custom_date_statistic(message: Message, state: FSMContext) -> No
         history_list, start_date, end_date = db_get_history_transaction(
             tg_id=message.chat.id, start_date=begin_history, end_date=end_history
         )
-        text = text_of_stat(history_list)
-        await message.edit_text(
-            text=f"История с {start_date} по {end_date}:\n{text}",
+        text, data_for_graphic = text_of_stat(history_list)
+        new_text = f"История с {start_date} по {end_date}:\n{text}"
+
+        media_graph = generate_standard_graphics(
+            history_list=history_list,
+            data_for_graphic=data_for_graphic,
+            text=new_text,
+        )
+
+        await message.answer_media_group(media=media_graph)
+        await message.answer(
+            text="Выше ты видишь свою аналитику.то делаем дальше?\nЧто делаем дальше?",
             reply_markup=change_date(),
         )
         await state.set_state(UserState.statistic_history)

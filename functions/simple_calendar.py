@@ -23,9 +23,6 @@ class SimpleCalendar:
         current_year = today.year
         current_month = today.month
 
-        if year == current_year and month > current_month:
-            month = current_month
-
         markup = []
         ignore_callback = SimpleCalendarCallback(
             act=SimpleCalendarAction.IGNORE, year=year, month=month, day=0
@@ -81,7 +78,9 @@ class SimpleCalendar:
                         )
                     )
                     continue
-                elif year > current_year or month > current_month:
+                elif year > current_year or (
+                    year >= current_year and month > current_month
+                ):
                     calendar_row.append(
                         InlineKeyboardButton(
                             text=" ", callback_data=ignore_callback.pack()
