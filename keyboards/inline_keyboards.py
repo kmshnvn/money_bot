@@ -15,21 +15,23 @@ def main_history_inline_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def change_date() -> InlineKeyboardMarkup:
+def change_date(start_date: bool = True) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.add(InlineKeyboardButton(text="🗓️Другая дата", callback_data="change_date"))
-    kb.add(InlineKeyboardButton(text="⬅️Назад", callback_data="back_to_main_history"))
-    kb.adjust(1)
+    kb.add(InlineKeyboardButton(text="Месяц", callback_data="change_date_current_month"))
+    if not start_date:
+        kb.add(InlineKeyboardButton(text="3 месяца", callback_data="change_date_three_month"))
+    kb.add(InlineKeyboardButton(text="Весь период", callback_data="change_date_all_history"))
+    kb.adjust(3)
+
+    kb.row(InlineKeyboardButton(text="🗓️Другая дата", callback_data="change_date"))
+    kb.row(InlineKeyboardButton(text="📉Графики (выбранный период)", callback_data="show_graphics"))
+    kb.row(InlineKeyboardButton(text="⬅️Назад", callback_data="back_to_main_history"))
     return kb.as_markup()
 
 
 def transaction_history() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.add(InlineKeyboardButton(text="🗓️Другая дата", callback_data="change_date"))
-    # kb.add(InlineKeyboardButton(
-    #     text="➡️Другие недавние операции",
-    #     callback_data="change_transaction")
-    # )
     kb.add(InlineKeyboardButton(text="⬅️Назад", callback_data="back_to_main_history"))
     kb.adjust(1)
     return kb.as_markup()

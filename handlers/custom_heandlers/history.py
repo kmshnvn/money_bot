@@ -2,6 +2,7 @@ from datetime import datetime, date
 from typing import Tuple, Dict
 
 from aiogram import F
+from aiogram.exceptions import TelegramBadRequest
 from loguru import logger
 from aiogram.filters import Command, Text
 from aiogram.types import Message, CallbackQuery
@@ -13,10 +14,10 @@ from database.database import (
     db_get_transaction,
     db_delete_transaction,
     db_get_history_transaction,
-    db_get_custom_date_history,
+    db_get_custom_date_history, db_get_first_date_transaction,
 )
 from functions import simple_cal_callback, SimpleCalendar
-from functions.functions import create_history_text, text_of_stat
+from functions.functions import create_history_text, text_of_stat, get_start_date
 from functions.graphics import generate_standard_graphics
 from handlers.default_heandlers.start import router
 from keyboards.inline_keyboards import (
@@ -118,7 +119,9 @@ async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -
             full_text = create_history_text(text, list(history))
 
         await callback.message.edit_text(
-            f"{full_text}", reply_markup=transaction_history()
+            f"{full_text}",
+            reply_markup=transaction_history(),
+            disable_web_page_preview=True
         )
     except Exception as ex:
         logger.error(f"Что-то пошло не так при формировании истории {ex}")
@@ -285,20 +288,18 @@ async def month_statistic(callback: CallbackQuery, state: FSMContext) -> None:
         history_list, start_date, end_date = db_get_history_transaction(
             tg_id=callback.message.chat.id,
         )
+        await state.update_data({"start_date": start_date, "end_date": end_date})
+        text = f"История с {start_date} по {end_date}:\n"
 
-        text, data_for_graphic = text_of_stat(history_list)
-        new_text = f"История с {start_date} по {end_date}:\n{text}"
-        media_graph = generate_standard_graphics(
-            history_list=history_list,
-            data_for_graphic=data_for_graphic,
-            text=new_text,
-        )
+        text_list, data_for_graphic = text_of_stat(history_list)
+        for new_text in text_list:
+            text += new_text
 
-        await callback.message.answer_media_group(media=media_graph)
-        await callback.message.answer(
-            text="Выше ты видишь свою аналитику.то делаем дальше?\nЧто делаем дальше?",
+        await callback.message.edit_text(
+            text=text,
             reply_markup=change_date(),
         )
+
         await state.set_state(UserState.statistic_history)
     except Exception as ex:
         logger.error(f"Что-то пошло не так при выводе статистики: {ex}")
@@ -313,6 +314,8 @@ async def date_statistic(callback: CallbackQuery, state: FSMContext) -> None:
     Обработчик команды выбора даты для статистики.
     """
     try:
+        logger.info(f"{callback.message.chat.id} - Выбираем дату начала для вывода истории")
+
         await callback.message.edit_text(
             text="Выберите дату начала",
             reply_markup=await SimpleCalendar().start_calendar(),
@@ -335,6 +338,8 @@ async def process_simple_calendar_history(
     Обработчик выбора даты через календарь для статистики.
     """
     try:
+        logger.info(f"{callback_query.message.chat.id} - Выбираем дату конца для вывода истории")
+
         my_state = await state.get_state()
         selected, date = await SimpleCalendar().process_selection(
             callback_query, callback_data
@@ -350,20 +355,20 @@ async def process_simple_calendar_history(
             await state.set_state(UserState.end_date_history)
 
         elif selected and my_state == "UserState:end_date_history":
-            new_date = date.strftime("%d.%m.%Y")
+            second_date = date.strftime("%d.%m.%Y")
             user_dict = await state.get_data()
-            start_date = user_dict.get("start_date")
-
-            if new_date < start_date:
-                start_date, new_date = new_date, start_date
+            first_date = user_dict.get("start_date")
+            start_date, end_date = create_date({"start_date": first_date, "end_date": second_date})
+            if end_date < start_date:
+                first_date, second_date = second_date, first_date
                 await state.update_data(
-                    {"start_date": start_date, "end_date": new_date}
+                    {"start_date": first_date, "end_date": second_date}
                 )
             else:
-                await state.update_data({"end_date": new_date})
+                await state.update_data({"end_date": second_date})
 
             await callback_query.message.edit_text(
-                f"Выбранная дата {start_date} - {new_date}\n"
+                f"Выбранная дата {first_date} - {second_date}\n"
             )
 
             user_state = user_dict.get("user_state")
@@ -410,31 +415,79 @@ async def month_custom_date_statistic(message: Message, state: FSMContext) -> No
     """
     try:
         logger.info(f"{message.chat.id} - Выводим транзакции с датами пользователя")
+        text_length = 4000
+        long_message = False
 
         begin_history, end_history = create_date(await state.get_data())
 
         history_list, start_date, end_date = db_get_history_transaction(
             tg_id=message.chat.id, start_date=begin_history, end_date=end_history
         )
-        text, data_for_graphic = text_of_stat(history_list)
-        new_text = f"История с {start_date} по {end_date}:\n{text}"
 
+        text = f"История с {start_date} по {end_date}:\n"
+
+        text_list, data_for_graphic = text_of_stat(history_list)
+        for new_text in text_list:
+            if len(text) + len(new_text) > text_length:
+                await message.answer(text=text)
+                long_message = True
+
+                text = ""
+
+            text += new_text
+
+        if long_message:
+            await message.answer(
+                text=text,
+                reply_markup=change_date(start_date=False),
+            )
+        else:
+            await message.edit_text(
+                text=text,
+                reply_markup=change_date(start_date=False),
+            )
+
+        await state.set_state(UserState.statistic_history)
+    except TelegramBadRequest:
+        await message.answer(text="Только что вывел информацию по выбранному критерию, выбери другой параметр")
+
+
+@router.callback_query(Text("show_graphics"))
+async def show_graphics(callback: CallbackQuery, state: FSMContext) -> None:
+    begin_history, end_history = create_date(await state.get_data())
+
+    history_list, start_date, end_date = db_get_history_transaction(
+        tg_id=callback.message.chat.id, start_date=begin_history, end_date=end_history
+    )
+    text, data_for_graphic = text_of_stat(history_list)
+    new_text = f"Графики в период с {start_date} по {end_date}"
+
+    if data_for_graphic:
         media_graph = generate_standard_graphics(
             history_list=history_list,
             data_for_graphic=data_for_graphic,
             text=new_text,
         )
 
-        await message.answer_media_group(media=media_graph)
-        await message.answer(
-            text="Выше ты видишь свою аналитику.то делаем дальше?\nЧто делаем дальше?",
-            reply_markup=change_date(),
+        await callback.message.answer_media_group(media=media_graph)
+    else:
+        await callback.message.answer(
+                text="Данных для формирования графиков еще нет❌\n\n"
+                     "Нажми /transaction , чтобы записать новую операцию в данный период",
         )
-        await state.set_state(UserState.statistic_history)
-    except Exception as ex:
-        logger.error(
-            f"Что-то пошло не так при выводе статистики за пользовательский период: {ex}"
-        )
-        await message.edit_text(
-            "🤕 Возникла ошибка при выводе статистики. Скоро меня починят"
-        )
+
+
+
+@router.callback_query(Text(["change_date_all_history", "change_date_current_month", "change_date_three_month"]))
+async def callback_change_date_of_static(callback: CallbackQuery, state: FSMContext) -> None:
+    if callback.data == "change_date_three_month":
+        await month_statistic(callback, state)
+    else:
+        if callback.data == "change_date_all_history":
+            start_date = db_get_first_date_transaction(tg_id=callback.message.chat.id)
+        elif callback.data == "change_date_current_month":
+            date_list = get_start_date()
+            start_date = date_list["start_month"].strftime("%d.%m.%Y")
+
+        await state.update_data({"start_date": start_date})
+        await month_custom_date_statistic(callback.message, state)

@@ -139,7 +139,7 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
     return text
 
 
-def text_of_stat(history_list: Dict) -> Tuple[str, Dict[str, Dict[str, int]]]:
+def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int]]]:
     """
     Создает текст статистики на основе списка истории.
 
@@ -148,7 +148,10 @@ def text_of_stat(history_list: Dict) -> Tuple[str, Dict[str, Dict[str, int]]]:
     """
     date_list = []
     data_for_graphic = {}
+    text_list = []
     text = ""
+    income_stat = 0
+    expense_stat = 0
 
     sorted_data = sorted(
         history_list, key=lambda x: datetime.strptime(x["year_month"], "%Y-%m")
@@ -162,8 +165,9 @@ def text_of_stat(history_list: Dict) -> Tuple[str, Dict[str, Dict[str, int]]]:
         if year_month not in date_list:
             if text != "":
                 text = text_of_stat_generate(text, income_stat, expense_stat)
+                text_list.append(text)
 
-            text += f"\n🔹*{month_name} {year}*\n\n"
+            text = f"\n🔹*{month_name} {year}*\n\n"
             date_list.append(year_month)
             income_stat = 0
             expense_stat = 0
@@ -177,19 +181,22 @@ def text_of_stat(history_list: Dict) -> Tuple[str, Dict[str, Dict[str, int]]]:
         text += f"  🔸{history['category_name']}: {summ} ₽\n"
         data_for_graphic[month_name] = {"Income": income_stat, "Expense": expense_stat}
 
-    text = text_of_stat_generate(text, income_stat, expense_stat)
-
     if not text:
-        text = f"\nВ этот период трат не было"
+        text = "\nВ этот период трат не было"
+    else:
+        text = text_of_stat_generate(text, income_stat, expense_stat)
 
-    return text, data_for_graphic
+    text_list.append(text)
+
+    return text_list, data_for_graphic
 
 
 def text_of_stat_generate(text, income_stat, expense_stat):
+    margin = round(income_stat + expense_stat, 2)
     text += (
         f"\n  💰Всего доход: {income_stat}\n"
         f"  🔻Всего расход: {expense_stat}\n"
-        f"  🔰Осталось: {income_stat + expense_stat}\n"
+        f"  🔰Осталось: {margin}\n"
     )
     return text
 

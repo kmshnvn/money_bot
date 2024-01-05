@@ -344,6 +344,29 @@ def db_get_main_statistic(tg_id: int) -> Dict[str, List[float]]:
         return {}
 
 
+def db_get_first_date_transaction(tg_id: int) -> str:
+    """
+    Функция получает дату первой операции пользователя из БД.
+
+    :param tg_id:
+    :return:
+    """
+    user = User.get_or_none(telegram_id=tg_id)
+
+    query = (
+        Transaction.select(
+            Transaction.transaction_date,
+        )
+        .where(
+            Transaction.user == user,
+        )
+        .order_by(Transaction.transaction_date)
+        .first()
+    ).transaction_date
+
+    return query.strftime("%d.%m.%Y")
+
+
 def db_get_history_transaction(
     tg_id: int, start_date=None, end_date=None
 ) -> Tuple[Any, date | Any, date | Any]:
