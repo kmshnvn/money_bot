@@ -14,7 +14,8 @@ from database.database import (
     db_get_transaction,
     db_delete_transaction,
     db_get_history_transaction,
-    db_get_custom_date_history, db_get_first_date_transaction,
+    db_get_custom_date_history,
+    db_get_first_date_transaction,
 )
 from functions import simple_cal_callback, SimpleCalendar
 from functions.functions import create_history_text, text_of_stat, get_start_date
@@ -61,6 +62,7 @@ async def history(message: Message, state: FSMContext) -> None:
 
 
 @router.callback_query(Text("back_to_main_history"))
+@router.callback_query(Text("main_history_menu"))
 async def callback_history(callback: CallbackQuery, state: FSMContext) -> None:
     try:
         logger.info(f"{callback.message.chat.id} - history.py | возврат в меню history")

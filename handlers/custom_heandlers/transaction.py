@@ -183,6 +183,7 @@ async def new_transaction(message: Message, state: FSMContext):
     ),
 )
 @router.callback_query(UserState.transaction_category, Text("back"))
+@router.callback_query(Text("new_transaction_callback"))
 async def transaction_summ(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для уточнения суммы операции.
@@ -209,6 +210,20 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             user_date = datetime.strptime(user_data["date"], "%d.%m.%Y").date()
             next_date = user_date - timedelta(days=1)
             await state.update_data({"date": next_date.strftime("%d.%m.%Y")})
+        elif callback.data == "new_transaction_callback":
+            balance = db_get_balance(callback.message.chat.id)
+            default_group = "Expense"
+
+            await state.set_data(
+                {
+                    "date": date.today().strftime("%d.%m.%Y"),
+                    "group": default_group,
+                    "summ": "",
+                    "category": "",
+                    "descr": "",
+                    "balance": float(balance),
+                }
+            )
 
         group_name = callback.data.title()
 
@@ -356,6 +371,8 @@ async def transaction_category(message: Message, state: FSMContext):
                 f"просто введи новую категорию",
                 reply_markup=user_category_kb(sorted(user_category), group_name),
             )
+            user_dict = await state.get_data()
+            logger.debug(user_dict)
 
         else:
             await message.answer(
@@ -779,11 +796,12 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             user_dict.pop("change_descr")
             user_dict.pop("change_summ")
             user_dict.pop("id")
+            user_dict.pop("user_state")
 
             await state.set_data(user_dict)
 
             user_dict = await state.get_data()
-
+            logger.debug(user_dict)
             await state.set_state(UserState.transaction_summ)
         else:
             await callback.message.edit_text(

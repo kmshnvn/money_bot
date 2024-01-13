@@ -12,6 +12,7 @@ def main_history_inline_kb() -> InlineKeyboardMarkup:
     kb.add(
         InlineKeyboardButton(text="📊Статистика трат", callback_data="user_statistic")
     )
+    kb.row(InlineKeyboardButton(text="🧮Новая операция", callback_data="new_transaction_callback"))
     return kb.as_markup()
 
 
@@ -97,6 +98,7 @@ def transaction_main_kb(
             )
         )
         kb.adjust(1, 2)
+    kb.row(InlineKeyboardButton(text="📊История и аналитика", callback_data="main_history_menu"))
     return kb.as_markup()
 
 
