@@ -211,6 +211,9 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             next_date = user_date - timedelta(days=1)
             await state.update_data({"date": next_date.strftime("%d.%m.%Y")})
         elif callback.data == "new_transaction_callback":
+            user_category = db_get_category(
+                tg_id=callback.message.chat.id, user_name=callback.message.from_user.full_name
+            )
             balance = db_get_balance(callback.message.chat.id)
             default_group = "Expense"
 
@@ -224,6 +227,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
                     "balance": float(balance),
                 }
             )
+            await state.update_data(user_category)
 
         group_name = callback.data.title()
 
