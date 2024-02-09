@@ -882,7 +882,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                     f"Дата - {str_date}\n\n"
                     f"Сколько денег потратили?"
                 ),
-                reply_markup=transaction_main_kb(default_group, not_today),
+                reply_markup=transaction_main_kb(not_today),
             )
             await state.set_state(UserState.transaction_summ)
         else:
