@@ -68,14 +68,8 @@ def new_transaction() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def transaction_main_kb(
-    group_name: str, not_today: bool = False
-) -> InlineKeyboardMarkup:
+def transaction_main_kb(not_today: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    if group_name == "Expense":
-        kb.add(InlineKeyboardButton(text="💰Нет, это доход💰", callback_data="income"))
-    else:
-        kb.add(InlineKeyboardButton(text="📈Нет, это расход📈", callback_data="expense"))
 
     kb.add(
         InlineKeyboardButton(
@@ -90,14 +84,14 @@ def transaction_main_kb(
             )
         )
         kb.add(InlineKeyboardButton(text="⏩️", callback_data="change_for_next_date"))
-        kb.adjust(1, 1, 3)
+        kb.adjust(1, 3)
     else:
         kb.add(
             InlineKeyboardButton(
                 text="⏱️Вчера", callback_data="change_for_yesterday_date"
             )
         )
-        kb.adjust(1, 2)
+        kb.adjust(2, 1)
     kb.row(InlineKeyboardButton(text="📊История и аналитика", callback_data="main_history_menu"))
     return kb.as_markup()
 

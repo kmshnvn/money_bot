@@ -154,11 +154,12 @@ async def new_transaction(message: Message, state: FSMContext):
 
             await message.answer(
                 text=(
-                    text + "Записываю *расходную операцию.*\n"
-                    "Дата - Сегодня\n\n"
-                    "Сколько денег потратили?"
+                    text + "Записываю операцию\n"
+                    "Дата - *Сегодня*\n\n"
+                    "Введите сумму.\n"
+                    "Далее можно будет выбрать Расход/Доход"
                 ),
-                reply_markup=transaction_main_kb(default_group),
+                reply_markup=transaction_main_kb(),
             )
             await state.set_state(UserState.transaction_summ)
 
@@ -245,24 +246,15 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             not_today = False
 
         text = ""
-        if group_name == "Expense":
-            await callback.message.edit_text(
-                text=(
-                    text + f"Записываю расходную операцию.\n"
-                    f"Дата - *{user_date}*\n\n"
-                    f"Сколько денег потратили?"
-                ),
-                reply_markup=transaction_main_kb(group_name, not_today),
-            )
-        else:
-            await callback.message.edit_text(
-                text=(
-                    text + f"Записываю пополнение.\n"
-                    f"Дата - *{user_date}*\n\n"
-                    f"Сколько денег получили?"
-                ),
-                reply_markup=transaction_main_kb(group_name, not_today),
-            )
+        await callback.message.edit_text(
+            text=(
+                text + f"Записываю операцию.\n"
+                f"Дата - *{user_date}*\n\n"
+                f"Введите сумму операции\n"
+                f"Далее можно будет выбрать Расход/Доход"
+            ),
+            reply_markup=transaction_main_kb(not_today=not_today),
+        )
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении суммы операции: {ex}")
@@ -492,16 +484,19 @@ async def transaction_description(message: Message, state: FSMContext):
             )
 
         if matching_category is None:
-            await state.update_data({"category": category})
+            if len(message.text) > 20:
+                await message.answer("Название категории не может превышать 20 символов")
+            else:
+                await state.update_data({"category": category})
 
-            await message.answer(
-                f"К сожалению, такой категории не было в вашем списке.\n"
-                f"\nГруппа категории: {group_name}\n"
-                f"Категория: {category}\n"
-                f"\nДобавим категорию",
-                reply_markup=transaction_save_kb(),
-            )
-            await state.set_state(UserState.transaction_new_category)
+                await message.answer(
+                    f"К сожалению, такой категории не было в вашем списке.\n"
+                    f"\nГруппа категории: {group_name}\n"
+                    f"Категория: {category}\n"
+                    f"\nДобавим категорию",
+                    reply_markup=transaction_save_kb(),
+                )
+                await state.set_state(UserState.transaction_new_category)
         elif (
             user_dict.get("user_state")
             == "UserState:change_success_transaction_details"

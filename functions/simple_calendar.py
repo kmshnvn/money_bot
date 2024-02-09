@@ -6,6 +6,8 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery
 from .calendar_types import SimpleCalendarCallback, SimpleCalendarAction, WEEKDAYS
 
+from loguru import logger
+
 
 class SimpleCalendar:
     @staticmethod
@@ -20,8 +22,16 @@ class SimpleCalendar:
         """
 
         today = datetime.now().date()
+        logger.debug(f'today {today}')
+
         current_year = today.year
+        logger.debug(f'current_year {current_year}')
+
         current_month = today.month
+        logger.debug(f'current_month {current_month}')
+        logger.debug(f'year {year}')
+        logger.debug(f'month {month}')
+
 
         markup = []
         ignore_callback = SimpleCalendarCallback(
@@ -32,22 +42,22 @@ class SimpleCalendar:
         markup.append(
             [
                 InlineKeyboardButton(
-                    text="<",
+                    text="<<",
                     callback_data=SimpleCalendarCallback(
-                        act=SimpleCalendarAction.PREV_MONTH,
+                        act=SimpleCalendarAction.PREV_YEAR,
                         year=year,
                         month=month,
                         day=1,
                     ).pack(),
                 ),
                 InlineKeyboardButton(
-                    text=f"{calendar.month_name[month]} {str(year)}",
+                    text=f"{str(year)}",
                     callback_data=ignore_callback.pack(),
                 ),
                 InlineKeyboardButton(
-                    text=">",
+                    text=">>",
                     callback_data=SimpleCalendarCallback(
-                        act=SimpleCalendarAction.NEXT_MONTH,
+                        act=SimpleCalendarAction.NEXT_YEAR,
                         year=year,
                         month=month,
                         day=1,
@@ -104,19 +114,19 @@ class SimpleCalendar:
         markup.append(
             [
                 InlineKeyboardButton(
-                    text="<<",
+                    text="<",
                     callback_data=SimpleCalendarCallback(
-                        act=SimpleCalendarAction.PREV_YEAR,
+                        act=SimpleCalendarAction.PREV_MONTH,
                         year=year,
                         month=month,
                         day=1,
                     ).pack(),
                 ),
-                InlineKeyboardButton(text=" ", callback_data=ignore_callback.pack()),
+                InlineKeyboardButton(text=f"{calendar.month_name[month]}", callback_data=ignore_callback.pack()),
                 InlineKeyboardButton(
-                    text=">>",
+                    text=">",
                     callback_data=SimpleCalendarCallback(
-                        act=SimpleCalendarAction.NEXT_YEAR,
+                        act=SimpleCalendarAction.NEXT_MONTH,
                         year=year,
                         month=month,
                         day=1,
@@ -141,6 +151,8 @@ class SimpleCalendar:
         """
         return_data = (False, None)
         temp_date = datetime(int(data.year), int(data.month), 1)
+        logger.debug(f'temp_date {temp_date}')
+
         # processing empty buttons, answering with no action
         if data.act == SimpleCalendarAction.IGNORE:
             await query.answer(cache_time=60)
@@ -151,6 +163,8 @@ class SimpleCalendar:
         # user navigates to previous year, editing message with new calendar
         if data.act == SimpleCalendarAction.PREV_YEAR:
             prev_date = datetime(int(data.year) - 1, int(data.month), 1)
+            logger.debug(f'prev_date {prev_date}')
+
             await query.message.edit_reply_markup(
                 str(query.message.message_id),
                 await self.start_calendar(int(prev_date.year), int(prev_date.month)),
@@ -158,6 +172,8 @@ class SimpleCalendar:
         # user navigates to next year, editing message with new calendar
         if data.act == SimpleCalendarAction.NEXT_YEAR:
             next_date = datetime(int(data.year) + 1, int(data.month), 1)
+            logger.debug(f'next_date {next_date}')
+
             await query.message.edit_reply_markup(
                 str(query.message.message_id),
                 await self.start_calendar(int(next_date.year), int(next_date.month)),
@@ -165,6 +181,8 @@ class SimpleCalendar:
         # user navigates to previous month, editing message with new calendar
         if data.act == SimpleCalendarAction.PREV_MONTH:
             prev_date = temp_date - timedelta(days=1)
+            logger.debug(f'prev_date {prev_date}')
+
             await query.message.edit_reply_markup(
                 str(query.message.message_id),
                 await self.start_calendar(int(prev_date.year), int(prev_date.month)),
@@ -172,6 +190,8 @@ class SimpleCalendar:
         # user navigates to next month, editing message with new calendar
         if data.act == SimpleCalendarAction.NEXT_MONTH:
             next_date = temp_date + timedelta(days=31)
+            logger.debug(f'next_date {next_date}')
+
             await query.message.edit_reply_markup(
                 str(query.message.message_id),
                 await self.start_calendar(int(next_date.year), int(next_date.month)),
