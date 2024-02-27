@@ -215,9 +215,9 @@ def db_create_transaction(user_dict: Dict[str, Union[int, str]]) -> int:
                     "description": user_dict["descr"],
                 }
 
-                user_balance = Balance.get(Balance.user == user)
-                user_balance.balance += Decimal(transaction_summ)
-                user_balance.save()
+                # user_balance = Balance.get(Balance.user == user)
+                # user_balance.balance += Decimal(transaction_summ)
+                # user_balance.save()
 
                 transaction_id = Transaction.insert(transaction).execute()
                 logger.debug(f'{user_dict["id"]} | Записал новую транзакцию в БД')
@@ -449,9 +449,9 @@ def db_delete_transaction(user_dict: Dict[str, int]) -> bool:
 
             Transaction.delete_by_id(transaction_id)
 
-            user_balance = Balance.get(Balance.user == user)
-            user_balance.balance -= Decimal(summ)
-            user_balance.save()
+            # user_balance = Balance.get(Balance.user == user)
+            # user_balance.balance -= Decimal(summ)
+            # user_balance.save()
 
             logger.debug(f"Операцию id-{transaction_id} удалили")
 
