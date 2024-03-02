@@ -347,10 +347,10 @@ async def transaction_category(message: Message, state: FSMContext):
         match = re.search(pattern, message.text)
 
         if match:
-            user_text = await calculate_sum(message.text)
+            user_text = float(await calculate_sum(message.text))
         else:
-            user_text = await check_regexp_summ(message.text)
-        await state.update_data({"summ": float(user_text)})
+            user_text = float(await check_regexp_summ(message.text))
+        await state.update_data({"summ": user_text})
         user_state = await state.get_state()
 
         user_dict = await state.get_data()
@@ -361,7 +361,7 @@ async def transaction_category(message: Message, state: FSMContext):
 
         if user_category is not None:
             await message.answer(
-                f"Сумма - {user_text}\n\n"
+                f"Сумма - {round(user_text, 2)}\n\n"
                 f"В какой категории была операция?\n"
                 f"\nЕсли операции нет и нужно добавить - "
                 f"просто введи новую категорию",
@@ -620,7 +620,7 @@ async def callback_transaction_check(callback: CallbackQuery, state: FSMContext)
         await callback.message.edit_text(
             f"Проверим операцию:\n"
             f'Дата - *{user_dict["date"]}*\n'
-            f'Сумма - *{user_dict["summ"]}*\n'
+            f'Сумма - *{round(user_dict["summ"], 2)}*\n'
             f'Категория - *{user_dict["category"]}*\n'
             f"Описание - {text_descr}\n",
             reply_markup=save_category_kb(),
@@ -651,7 +651,7 @@ async def change_success_transaction_check(message: Message, state: FSMContext):
         await message.answer(
             f"Сейчас операция будет выглядеть так:\n"
             f'Дата - *{transaction_dict["date"]}*\n'
-            f'Сумма - *{transaction_dict["summ"]}*\n'
+            f'Сумма - *{round(transaction_dict["summ"], 2)}*\n'
             f'Категория - *{transaction_dict["category"]}*\n'
             f'Описание - {transaction_dict["descr"]}\n',
             reply_markup=update_category_kb(),
@@ -683,7 +683,7 @@ async def callback_change_success_transaction_check(
         await callback.message.edit_text(
             f"Сейчас операция будет выглядеть так:\n"
             f'Дата - *{transaction_dict["date"]}*\n'
-            f'Сумма - *{transaction_dict["summ"]}*\n'
+            f'Сумма - *{round(transaction_dict["summ"], 2)}*\n'
             f'Категория - *{transaction_dict["category"]}*\n'
             f'Описание - {transaction_dict["descr"]}\n',
             reply_markup=update_category_kb(),
@@ -710,7 +710,7 @@ async def transaction_check_without_descr(message: Message, state: FSMContext):
         await message.answer(
             f"Проверим операцию:\n"
             f'Дата - *{user_dict["date"]}*\n'
-            f'Сумма - *{user_dict["summ"]}*\n'
+            f'Сумма - *{round(user_dict["summ"], 2)}*\n'
             f'Категория - *{user_dict["category"]}*\n'
             f"Описание - {text_descr}\n",
             reply_markup=save_category_kb(),
@@ -747,7 +747,7 @@ async def transaction_check(message: Message, state: FSMContext):
             await message.answer(
                 f"Проверим операцию:\n"
                 f'Дата - *{user_dict["date"]}*\n'
-                f'Сумма - *{user_dict["summ"]}*\n'
+                f'Сумма - *{round(user_dict["summ"], 2)}*\n'
                 f'Категория - *{user_dict["category"]}*\n'
                 f"Описание - *{description}*\n",
                 reply_markup=save_category_kb(),
@@ -782,7 +782,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                 text=(
                     f"✅Операцию обновил\n\n"
                     f"Дата - *{transaction_dict['date']}*\n"
-                    f"Сумма - *{transaction_dict['summ']}*\n"
+                    f"Сумма - *{round(transaction_dict['summ'], 2)}*\n"
                     f"Категория - *{transaction_dict['category']}*\n"
                     f"Описание - {transaction_dict['text_descr']}\n"
                 ),
@@ -860,7 +860,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                 text=(
                     f"Операцию записал✅\n\n"
                     f'Дата - *{user_dict["date"]}*\n'
-                    f'Сумма - *{user_dict["summ"]}*\n'
+                    f'Сумма - *{round(user_dict["summ"], 2)}*\n'
                     f'Категория - *{user_dict["category"]}*\n'
                     f'Описание - *{user_dict["descr"]}*\n'
                 ),

@@ -12,7 +12,7 @@ from loguru import logger
 class SimpleCalendar:
     @staticmethod
     async def start_calendar(
-        year: int = datetime.now().year, month: int = datetime.now().month
+        year: int = None, month: int = None
     ) -> InlineKeyboardMarkup:
         """
         Creates an inline keyboard with the provided year and month
@@ -22,6 +22,11 @@ class SimpleCalendar:
         """
 
         today = datetime.now().date()
+        if year is None:
+            year = today.year
+        if month is None:
+            month = today.month
+
         logger.debug(f'today {today}')
 
         current_year = today.year

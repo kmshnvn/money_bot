@@ -178,7 +178,7 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
         else:
             expense_stat += summ
 
-        text += f"  🔸{history['category_name']}: {summ} ₽\n"
+        text += f"  🔸{history['category_name']}: {round(summ, 2)} ₽\n"
         data_for_graphic[month_name] = {"Income": income_stat, "Expense": expense_stat}
 
     if not text:
@@ -194,9 +194,9 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
 def text_of_stat_generate(text, income_stat, expense_stat):
     margin = round(income_stat + expense_stat, 2)
     text += (
-        f"\n  💰Всего доход: {income_stat}\n"
-        f"  🔻Всего расход: {expense_stat}\n"
-        f"  🔰Осталось: {margin}\n"
+        f"\n  💰Всего доход: {round(income_stat, 2)}\n"
+        f"  🔻Всего расход: {round(expense_stat, 2)}\n"
+        f"  🔰Осталось: {round(margin, 2)}\n"
     )
     return text
 

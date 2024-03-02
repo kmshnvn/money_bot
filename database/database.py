@@ -378,13 +378,13 @@ def db_get_history_transaction(
     :return:
     """
     user = User.get_or_none(telegram_id=tg_id)
-
+    month_ago = 2
     today = date.today()
     if start_date is None:
         start_date = (
-            date(today.year, today.month - 2, 1)
-            if today.month > 2
-            else date(today.year - 1, 12 - today.month, 1)
+            date(today.year, today.month - month_ago, 1)
+            if today.month > month_ago
+            else date(today.year - 1, 12 + (today.month - month_ago), 1)
         )
 
     if end_date is None:
