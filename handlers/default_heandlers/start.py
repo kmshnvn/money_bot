@@ -24,10 +24,16 @@ async def bot_start(message: Message, state: FSMContext) -> None:
     """
 
     logger.info(f"{message.chat.id} - команда start")
+    user_state = await state.get_state()
 
     split_text = ""
     if len(message.text.split(" ")) == 2:
         split_text = message.text.split(" ")[1]
+
+    if user_state == "UserState:statistic_history":
+        await state.update_data({"user_state_history": "UserState:statistic_history"})
+    elif user_state == "UserState:transaction_history":
+        await state.update_data({"user_state_history": "UserState:transaction_history"})
 
     if not User.get_or_none(telegram_id=message.from_user.id):
         user = User.create(

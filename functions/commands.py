@@ -60,7 +60,7 @@ async def check_delete_transaction(
             await message.answer(f"{text}", reply_markup=delete_history_kb())
         else:
             await message.answer(
-                text=f"Операция уже удалена или не существует",
+                text="Операция уже удалена или не существует",
             )
 
     except Exception as ex:

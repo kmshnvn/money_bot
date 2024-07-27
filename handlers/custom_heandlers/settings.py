@@ -1,7 +1,7 @@
 from loguru import logger
 from aiogram.filters import Text, Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
+from aiogram.types import Message, CallbackQuery
 from aiogram import F
 
 from handlers.default_heandlers.start import router
@@ -10,10 +10,10 @@ from handlers.default_heandlers.start import router
 from database.database import db_create_category, db_get_category, db_change_category
 from database.states import UserState
 from keyboards.inline_keyboards import (
-    user_category_kb,
     save_category_kb,
     exist_category_kb,
     group_category_kb,
+    user_category_for_settings_kb,
 )
 
 from keyboards.reply_keyboards import (
@@ -83,6 +83,49 @@ async def category_settings(message: Message, state: FSMContext):
     except Exception as ex:
         logger.error(f"Что-то пошло не так при настройке категорий: {ex}")
         await message.answer(
+            "🤕 Возникла ошибка при настройке категорий. Скоро меня починят"
+        )
+
+
+@router.callback_query(Text("back_to_main_settings"))
+async def category_settings(callback: CallbackQuery, state: FSMContext):
+    """
+    Обработка команды /Setting для настройки категорий трат пользователя.
+    """
+    try:
+        logger.info("Начало /Setting")
+        await state.set_state(UserState.settings)
+
+        user_category = db_get_category(
+            tg_id=callback.message.chat.id,
+            user_name=callback.message.from_user.full_name,
+        )
+
+        logger.info("Категорий есть")
+        await state.set_data(user_category)
+
+        text = ""
+
+        for key, value in user_category.items():
+            if key == "Expense":
+                text += "*Категории расходов:*\n"
+                for elem in value:
+                    text += f"{elem}\n"
+            else:
+                text += "\n*Категории доходов:*\n"
+                for elem in value:
+                    text += f"{elem}\n"
+
+        await callback.message.edit_text(
+            text=f"Настройки категорий.\n"
+            f"Сейчас у тебя установлены следующие категории:\n\n"
+            f"{text}"
+            f"\nЧто делаем?",
+            reply_markup=exist_category_kb(),
+        )
+    except Exception as ex:
+        logger.error(f"Что-то пошло не так при настройке категорий: {ex}")
+        await callback.message.answer(
             "🤕 Возникла ошибка при настройке категорий. Скоро меня починят"
         )
 
@@ -172,28 +215,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         logger.error(f"Что-то пошло не так при выборе группы категории: {ex}")
         await callback.message.edit_text(
             "🤕 Возникла ошибка при выборе группы категории. Скоро меня починят"
-        )
-
-
-@router.callback_query(UserState.custom_category_group, Text("ready"))
-async def category_settings_complete(callback: CallbackQuery, state: FSMContext):
-    """
-    Завершение настройки категорий и переход к созданию операции.
-    """
-    try:
-        logger.info("Категории настроены.")
-
-        await state.set_state(UserState.default)
-
-        await callback.message.edit_text(
-            "Отлично, категории настроены",
-        )
-        await category_settings(callback.message, state)
-
-    except Exception as ex:
-        logger.error(f"Что-то пошло не так при завершении настройки категорий: {ex}")
-        await callback.message.edit_text(
-            "🤕 Возникла ошибка при завершении настройки категорий. Скоро меня починят"
         )
 
 
@@ -302,10 +323,9 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
                 category_list.extend(value)
 
         await state.update_data({"all_categories": category_list})
-
         await callback.message.edit_text(
             text="Выберите категорию для редактирования",
-            reply_markup=user_category_kb(category_list),
+            reply_markup=user_category_for_settings_kb(user_dict),
         )
         if callback.data == "delete_category":
             await state.set_state(UserState.delete_category)

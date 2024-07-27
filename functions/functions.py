@@ -106,7 +106,6 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
     today_date = date.today()
     date_list = []
 
-    history_to_remove = []
     for day_history in reversed(history[:HISTORY_DISPLAY_LIMIT]):
         user_date = day_history["transaction_date"]
         if user_date not in date_list:
@@ -132,14 +131,12 @@ def create_history_text(text: str, history: List[Dict[str, Union[str, float]]]) 
             f"-----------\n"
         )
 
-        history_to_remove.append(day_history)
-
-    for item in history_to_remove:
-        history.remove(item)
     return text
 
 
-def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int]]]:
+def text_of_stat(
+    history_list: Dict, category_flag: bool = False
+) -> Tuple[List[str], Dict[str, Dict[str, int]]]:
     """
     Создает текст статистики на основе списка истории.
 
@@ -148,6 +145,7 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
     """
     date_list = []
     data_for_graphic = {}
+    data_for_category_keyboard = {}
     text_list = []
     text = ""
     income_stat = 0
@@ -156,7 +154,7 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
     sorted_data = sorted(
         history_list, key=lambda x: datetime.strptime(x["year_month"], "%Y-%m")
     )
-
+    count = 1
     for history in sorted_data:
         year_month = history["year_month"]
         year, month = year_month.split("-")
@@ -178,8 +176,14 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
         else:
             expense_stat += summ
 
-        text += f"  🔸{history['category_name']}: {round(summ, 2)} ₽\n"
+        if category_flag:
+            text += f"  🔸({count}) {history['category_name']}: {round(summ, 2)} ₽\n"
+            data_for_category_keyboard[count] = history["id"]
+        else:
+            text += f"  🔸{history['category_name']}: {round(summ, 2)} ₽\n"
+
         data_for_graphic[month_name] = {"Income": income_stat, "Expense": expense_stat}
+        count += 1
 
     if not text:
         text = "\nВ этот период трат не было"
@@ -188,7 +192,7 @@ def text_of_stat(history_list: Dict) -> Tuple[List[str], Dict[str, Dict[str, int
 
     text_list.append(text)
 
-    return text_list, data_for_graphic
+    return text_list, data_for_graphic, data_for_category_keyboard
 
 
 def text_of_stat_generate(text, income_stat, expense_stat):

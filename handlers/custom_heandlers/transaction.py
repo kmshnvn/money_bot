@@ -1,14 +1,16 @@
 from datetime import date, timedelta, datetime
 import re
 
+from aiogram.exceptions import TelegramBadRequest
 from fuzzywuzzy import fuzz
 from loguru import logger
 from aiogram.filters import Command, Text
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-from aiogram import F
+from aiogram import F, Bot
 from aiogram.types import CallbackQuery
 
+from config_data.config import BOT_TOKEN
 from database.database import (
     db_get_category,
     db_create_transaction,
@@ -16,6 +18,8 @@ from database.database import (
     db_get_balance,
     db_get_transaction,
     db_update_transaction,
+    db_get_category_id,
+    db_delete_category,
 )
 
 from database.states import UserState
@@ -31,6 +35,7 @@ from keyboards.inline_keyboards import (
     change_success_transaction,
     change_success_transaction_details_kb,
     update_category_kb,
+    CreateCallbackData,
 )
 from keyboards.reply_keyboards import default_category_kb
 
@@ -83,8 +88,11 @@ async def check_change_transaction(user_data: dict):
             amount = -user_data["change_summ"]
             summ = user_data["change_summ"]
     else:
-        amount = user_data["change_summ"]
-        summ = user_data["change_summ"]
+        amount = summ = (
+            user_dict["old_summ"]
+            if user_data["change_summ"] == ""
+            else user_data["change_summ"]
+        )
 
     transaction_dict = {
         "id": user_data["id"],
@@ -97,6 +105,9 @@ async def check_change_transaction(user_data: dict):
     }
 
     return transaction_dict
+
+
+bot = Bot(token=BOT_TOKEN, parse_mode="Markdown")
 
 
 @router.message(F.text.contains("Новая операция"))
@@ -116,7 +127,7 @@ async def new_transaction(message: Message, state: FSMContext):
         if not user_category:
             logger.info("Категорий нет")
 
-            await message.answer(
+            msg = await message.answer(
                 text=f"*Категории еще не установлены, сначала нужно их настроить.*\n\n"
                 f"Для быстрой настройки у меня есть стандартные категории трат, "
                 f"чтобы использовать их просто нажми на кнопку 'Использовать стандартный набор'"
@@ -138,21 +149,9 @@ async def new_transaction(message: Message, state: FSMContext):
             balance = db_get_balance(message.chat.id)
             default_group = "Expense"
 
-            await state.set_data(
-                {
-                    "date": date.today().strftime("%d.%m.%Y"),
-                    "group": default_group,
-                    "summ": "",
-                    "category": "",
-                    "descr": "",
-                    "balance": float(balance),
-                }
-            )
-            await state.update_data(user_category)
-
             text = ""
 
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     text + "Записываю операцию\n"
                     "Дата - *Сегодня*\n\n"
@@ -161,13 +160,27 @@ async def new_transaction(message: Message, state: FSMContext):
                 ),
                 reply_markup=transaction_main_kb(),
             )
+            await state.set_data(
+                {
+                    "date": date.today().strftime("%d.%m.%Y"),
+                    "group": default_group,
+                    "summ": "",
+                    "category": "",
+                    "descr": "",
+                    "balance": float(balance),
+                    "last_msg": msg.message_id,
+                    "not_changed_msg": msg.message_id - 1,
+                }
+            )
+            await state.update_data(user_category)
             await state.set_state(UserState.transaction_summ)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при начале записи новой операции: {ex}")
-        await message.edit_text(
+        msg = await message.edit_text(
             "🤕 Возникла ошибка в начале записи операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(
@@ -213,7 +226,8 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             await state.update_data({"date": next_date.strftime("%d.%m.%Y")})
         elif callback.data == "new_transaction_callback":
             user_category = db_get_category(
-                tg_id=callback.message.chat.id, user_name=callback.message.from_user.full_name
+                tg_id=callback.message.chat.id,
+                user_name=callback.message.from_user.full_name,
             )
             balance = db_get_balance(callback.message.chat.id)
             default_group = "Expense"
@@ -246,7 +260,7 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             not_today = False
 
         text = ""
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             text=(
                 text + f"Записываю операцию.\n"
                 f"Дата - *{user_date}*\n\n"
@@ -255,12 +269,16 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
             ),
             reply_markup=transaction_main_kb(not_today=not_today),
         )
+        await state.update_data(
+            {"last_msg": msg.message_id, "not_changed_msg": msg.message_id - 1}
+        )
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении суммы операции: {ex}")
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             "🤕 Возникла ошибка при уточнении суммы операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.transaction_summ, Text("change_transaction_date"))
@@ -275,16 +293,18 @@ async def transaction_user_date(callback: CallbackQuery, state: FSMContext):
     Обработчик команды выбора даты для статистики.
     """
     try:
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             text="Выберите дату начала",
             reply_markup=await SimpleCalendar().start_calendar(),
         )
+        await state.update_data({"last_msg": msg.message_id})
         await state.update_data({"user_state": await state.get_state()})
     except Exception as ex:
         logger.error(f"Что-то пошло не так при выборе даты для статистики: {ex}")
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             "🤕 Возникла ошибка при выборе даты. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.transaction_summ, simple_cal_callback.filter())
@@ -360,7 +380,7 @@ async def transaction_category(message: Message, state: FSMContext):
         user_category = user_dict.get(group_name)
 
         if user_category is not None:
-            await message.answer(
+            msg = await message.answer(
                 f"Сумма - {round(user_text, 2)}\n\n"
                 f"В какой категории была операция?\n"
                 f"\nЕсли операции нет и нужно добавить - "
@@ -368,17 +388,17 @@ async def transaction_category(message: Message, state: FSMContext):
                 reply_markup=user_category_kb(sorted(user_category), group_name),
             )
             user_dict = await state.get_data()
-            logger.debug(user_dict)
 
         else:
-            await message.answer(
+            msg = await message.answer(
                 "Категорий еще нет. Введите новую",
             )
         await state.set_state(UserState.transaction_category)
+        await state.update_data({"last_msg": msg.message_id})
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
             "🔸100\n"
             "🔸100.0\n"
@@ -388,6 +408,7 @@ async def transaction_category(message: Message, state: FSMContext):
             "Также можно ввести сумму для калькулятора в формате:\n"
             "🔹100+100,0+..",
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.transaction_new_category, Text("back"))
@@ -422,7 +443,7 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
             user_category = user_dict.get(group_name)
 
             if user_category is not None:
-                await callback.message.edit_text(
+                msg = await callback.message.edit_text(
                     "В какой категории была операция?\n"
                     "\nЕсли операции нет и нужно добавить - "
                     "просто введи новую категорию",
@@ -430,33 +451,36 @@ async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
                 )
 
             else:
-                await callback.message.edit_text(
+                msg = await callback.message.edit_text(
                     "Категорий еще нет. Введите новую",
                 )
             await state.set_state(UserState.change_transaction_category)
+            await state.update_data({"last_msg": msg.message_id})
 
         else:
             group_name = "Expense" if user_dict["group"] == "Expense" else "Income"
             user_category = user_dict.get(group_name)
 
             if user_category is not None:
-                await callback.message.edit_text(
+                msg = await callback.message.edit_text(
                     "В какой категории была операция?\n"
                     "\nЕсли операции нет и нужно добавить - "
                     "просто введи новую категорию",
                     reply_markup=user_category_kb(sorted(user_category), group_name),
                 )
             else:
-                await callback.message.edit_text(
+                msg = await callback.message.edit_text(
                     "Категорий еще нет. Введите новую",
                 )
             await state.set_state(UserState.transaction_category)
+            await state.update_data({"last_msg": msg.message_id})
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении категории операции: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Возникла ошибка при уточнении категории операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.message(UserState.transaction_category)
@@ -485,11 +509,13 @@ async def transaction_description(message: Message, state: FSMContext):
 
         if matching_category is None:
             if len(message.text) > 20:
-                await message.answer("Название категории не может превышать 20 символов")
+                msg = await message.answer(
+                    "Название категории не может превышать 20 символов"
+                )
             else:
                 await state.update_data({"category": category})
 
-                await message.answer(
+                msg = await message.answer(
                     f"К сожалению, такой категории не было в вашем списке.\n"
                     f"\nГруппа категории: {group_name}\n"
                     f"Категория: {category}\n"
@@ -497,6 +523,8 @@ async def transaction_description(message: Message, state: FSMContext):
                     reply_markup=transaction_save_kb(),
                 )
                 await state.set_state(UserState.transaction_new_category)
+                await state.update_data({"last_msg": msg.message_id})
+
         elif (
             user_dict.get("user_state")
             == "UserState:change_success_transaction_details"
@@ -508,19 +536,20 @@ async def transaction_description(message: Message, state: FSMContext):
             if user_dict.get("user_state") == "UserState:change_transaction_details":
                 await transaction_check_without_descr(message, state)
             else:
-                await message.answer(
+                msg = await message.answer(
                     text="Такая категория уже есть в вашем списке\n"
                     "Добавьте описание операции (необязательно)",
                     reply_markup=transaction_descr_kb(),
                 )
-
+                await state.update_data({"last_msg": msg.message_id})
                 await state.set_state(UserState.transaction_description)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении описания операции: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🤕 Возникла ошибка при уточнении описания операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(
@@ -551,18 +580,19 @@ async def transaction_callback_description(callback: CallbackQuery, state: FSMCo
             await callback_transaction_check(callback, state)
         else:
             await state.update_data({"category": category})
-            await callback.message.edit_text(
+            msg = await callback.message.edit_text(
                 text="Добавьте описание операции (необязательно)",
                 reply_markup=transaction_descr_kb(),
             )
-
+            await state.update_data({"last_msg": msg.message_id})
             await state.set_state(UserState.transaction_description)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при уточнении описания операции: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Возникла ошибка при уточнении описания операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.transaction_new_category, Text("add_category"))
@@ -590,19 +620,35 @@ async def transaction_new_category(callback: CallbackQuery, state: FSMContext):
         if user_dict.get("user_state") == "UserState:change_transaction_details":
             await transaction_check_without_descr(callback.message, state)
         else:
-            await callback.message.edit_text(
+            user_category = db_get_category_id(
+                tg_id=callback.message.chat.id, category_name=user_dict["category"]
+            )
+            msg = await callback.message.edit_text(
                 f'Записал новую категорию {user_dict["category"]}\n\n'
                 f"Добавьте описание операции (необязательно)",
-                reply_markup=transaction_descr_kb(),
+                reply_markup=transaction_descr_kb(
+                    delete_flag=True, category_id=user_category["id"]
+                ),
             )
-
+            await state.update_data({"last_msg": msg.message_id})
             await state.set_state(UserState.transaction_description)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при записи новой категории: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Возникла ошибка при записи новой категории. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
+
+
+@router.callback_query(CreateCallbackData.filter(F.foo == "delete_category_from_db"))
+async def delete_success_category_from_transacsions(
+    callback: CallbackQuery, state: FSMContext, callback_data: CreateCallbackData
+) -> None:
+    """ """
+    logger.info("delete_success_category_from_transacsions")
+    db_delete_category(callback_data.bar)
+    await transaction_category_back(callback, state)
 
 
 @router.callback_query(UserState.transaction_description)
@@ -617,7 +663,7 @@ async def callback_transaction_check(callback: CallbackQuery, state: FSMContext)
         description = user_dict.get("descr")
         text_descr = "(Без описания)" if description == "" else description
 
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             f"Проверим операцию:\n"
             f'Дата - *{user_dict["date"]}*\n'
             f'Сумма - *{round(user_dict["summ"], 2)}*\n'
@@ -625,12 +671,14 @@ async def callback_transaction_check(callback: CallbackQuery, state: FSMContext)
             f"Описание - {text_descr}\n",
             reply_markup=save_category_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
         await state.set_state(UserState.save_transaction)
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 async def change_success_transaction_check(message: Message, state: FSMContext):
@@ -648,7 +696,7 @@ async def change_success_transaction_check(message: Message, state: FSMContext):
 
         await state.update_data({"transaction_dict": transaction_dict})
 
-        await message.answer(
+        msg = await message.answer(
             f"Сейчас операция будет выглядеть так:\n"
             f'Дата - *{transaction_dict["date"]}*\n'
             f'Сумма - *{round(transaction_dict["summ"], 2)}*\n'
@@ -656,12 +704,14 @@ async def change_success_transaction_check(message: Message, state: FSMContext):
             f'Описание - {transaction_dict["descr"]}\n',
             reply_markup=update_category_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
         await state.set_state(UserState.update_transaction)
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.change_success_transaction_details, Text("back"))
@@ -678,9 +728,11 @@ async def callback_change_success_transaction_check(
         user_data = await state.get_data()
         transaction_dict = await check_change_transaction(user_data)
 
+        logger.debug(transaction_dict)
+
         await state.update_data({"transaction_dict": transaction_dict})
 
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             f"Сейчас операция будет выглядеть так:\n"
             f'Дата - *{transaction_dict["date"]}*\n'
             f'Сумма - *{round(transaction_dict["summ"], 2)}*\n'
@@ -688,12 +740,14 @@ async def callback_change_success_transaction_check(
             f'Описание - {transaction_dict["descr"]}\n',
             reply_markup=update_category_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
         await state.set_state(UserState.update_transaction)
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 async def transaction_check_without_descr(message: Message, state: FSMContext):
@@ -707,7 +761,7 @@ async def transaction_check_without_descr(message: Message, state: FSMContext):
         description = user_dict.get("descr")
         text_descr = "(Без описания)" if description == "" else description
 
-        await message.answer(
+        msg = await message.answer(
             f"Проверим операцию:\n"
             f'Дата - *{user_dict["date"]}*\n'
             f'Сумма - *{round(user_dict["summ"], 2)}*\n'
@@ -715,13 +769,15 @@ async def transaction_check_without_descr(message: Message, state: FSMContext):
             f"Описание - {text_descr}\n",
             reply_markup=save_category_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
         await state.set_state(UserState.save_transaction)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.message(UserState.transaction_description)
@@ -744,7 +800,7 @@ async def transaction_check(message: Message, state: FSMContext):
             await state.update_data({"descr": description})
             user_dict = await state.get_data()
 
-            await message.answer(
+            msg = await message.answer(
                 f"Проверим операцию:\n"
                 f'Дата - *{user_dict["date"]}*\n'
                 f'Сумма - *{round(user_dict["summ"], 2)}*\n'
@@ -752,13 +808,15 @@ async def transaction_check(message: Message, state: FSMContext):
                 f"Описание - *{description}*\n",
                 reply_markup=save_category_kb(),
             )
+            await state.update_data({"last_msg": msg.message_id})
             await state.set_state(UserState.save_transaction)
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке операции: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🤕 Возникла ошибка при проверке операции. Скоро меня починят"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.update_transaction, Text("update_transaction"))
@@ -772,21 +830,77 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         )
 
         user_dict = await state.get_data()
-
         transaction_dict = user_dict["transaction_dict"]
+        user_state = user_dict.get("user_state_history")
+        logger.debug(user_state)
 
         if db_update_transaction(transaction_dict, callback.message.chat.id):
             balance = db_get_balance(callback.message.chat.id)
 
-            await callback.message.edit_text(
-                text=(
-                    f"✅Операцию обновил\n\n"
-                    f"Дата - *{transaction_dict['date']}*\n"
-                    f"Сумма - *{round(transaction_dict['summ'], 2)}*\n"
-                    f"Категория - *{transaction_dict['category']}*\n"
-                    f"Описание - {transaction_dict['text_descr']}\n"
-                ),
-            )
+            if (
+                user_state != "UserState:statistic_history"
+                and user_state != "UserState:transaction_history"
+            ):
+                not_changed_msg = (
+                    user_dict["not_changed_msg"] + 1
+                    if user_dict.get("del_early_msg")
+                    else user_dict["not_changed_msg"]
+                )
+
+                for msg_id in range(not_changed_msg, user_dict["last_msg"]):
+                    try:
+                        await bot.delete_message(
+                            chat_id=callback.message.chat.id, message_id=msg_id
+                        )
+                    except TelegramBadRequest:
+                        pass
+
+                msg = await callback.message.edit_text(
+                    text=(
+                        f"✅Операцию обновил\n\n"
+                        f"Дата - *{transaction_dict['date']}*\n"
+                        f"Сумма - *{round(transaction_dict['summ'], 2)}*\n"
+                        f"Категория - *{transaction_dict['category']}*\n"
+                        f"Описание - {transaction_dict['text_descr']}\n"
+                    ),
+                    reply_markup=change_success_transaction(
+                        transaction_dict["id"], callback.message.message_id
+                    ),
+                )
+
+                if user_dict.get("date") == date.today().strftime("%d.%m.%Y"):
+                    str_date = "Сегодня"
+                    not_today = False
+                else:
+                    str_date = user_dict.get("date")
+                    not_today = True
+
+                msg = await callback.message.answer(
+                    text=(
+                        f"Записываю новую *расходную операцию.*\n"
+                        f"Дата - {str_date}\n\n"
+                        f"Сколько денег потратили?"
+                    ),
+                    reply_markup=transaction_main_kb(not_today),
+                )
+                ll = msg.message_id
+                await state.update_data(
+                    {
+                        "last_msg": ll,
+                        "not_changed_msg": ll - 1,
+                        "user_state": "",
+                    }
+                )
+            else:
+                msg = await callback.message.edit_text(
+                    text=(
+                        f"✅Операцию обновил\n\n"
+                        f"Дата - *{transaction_dict['date']}*\n"
+                        f"Сумма - *{round(transaction_dict['summ'], 2)}*\n"
+                        f"Категория - *{transaction_dict['category']}*\n"
+                        f"Описание - {transaction_dict['text_descr']}\n"
+                    ),
+                )
 
             user_dict.pop("transaction_dict")
             user_dict.pop("old_transaction_info")
@@ -795,24 +909,31 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             user_dict.pop("change_descr")
             user_dict.pop("change_summ")
             user_dict.pop("id")
-            user_dict.pop("user_state")
 
             await state.set_data(user_dict)
 
-            user_dict = await state.get_data()
-            logger.debug(user_dict)
-            await state.set_state(UserState.transaction_summ)
+            if user_state == "UserState:statistic_history":
+                await state.set_state(UserState.statistic_history)
+            elif user_state == "UserState:transaction_history":
+                await state.set_state(UserState.transaction_history)
+            else:
+                await state.set_state(UserState.transaction_summ)
         else:
-            await callback.message.edit_text(
+            msg = await callback.message.edit_text(
                 text=(
                     "🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
                 ),
             )
-            await state.set_state(UserState.transaction_summ)
+            if user_state == "UserState:statistic_history":
+                await state.set_state(UserState.statistic_history)
+            elif user_state == "UserState:transaction_history":
+                await state.set_state(UserState.transaction_history)
+            else:
+                await state.set_state(UserState.transaction_summ)
     #
     except Exception as ex:
         logger.error(f"Ошибка при записи транзакции в БД: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Произошла ошибка при обновлении транзакции. Мы скоро все исправим!"
         )
 
@@ -845,18 +966,17 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             balance = db_get_balance(callback.message.chat.id)
             default_group = "Expense"
 
-            await state.update_data(
-                {
-                    "group": default_group,
-                    "summ": "",
-                    "category": "",
-                    "descr": "",
-                    "balance": float(balance),
-                    "user_state": "",
-                }
-            )
+            for msg_id in range(
+                user_dict["not_changed_msg"] + 1, user_dict["last_msg"]
+            ):
+                try:
+                    await bot.delete_message(
+                        chat_id=callback.message.chat.id, message_id=msg_id
+                    )
+                except TelegramBadRequest:
+                    pass
 
-            await callback.message.edit_text(
+            msg = await callback.message.edit_text(
                 text=(
                     f"Операцию записал✅\n\n"
                     f'Дата - *{user_dict["date"]}*\n'
@@ -864,9 +984,11 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                     f'Категория - *{user_dict["category"]}*\n'
                     f'Описание - *{user_dict["descr"]}*\n'
                 ),
-                reply_markup=change_success_transaction(transaction_id),
+                reply_markup=change_success_transaction(
+                    transaction_id, callback.message.message_id
+                ),
             )
-
+            await state.update_data({"last_msg": msg.message_id})
             user_dict = await state.get_data()
 
             if user_dict.get("date") == date.today().strftime("%d.%m.%Y"):
@@ -876,28 +998,46 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
                 str_date = user_dict.get("date")
                 not_today = True
 
-            await callback.message.answer(
+            msg = await callback.message.answer(
                 text=(
                     f"Записываю новую *расходную операцию.*\n"
+                    f"{msg.message_id+1}"
                     f"Дата - {str_date}\n\n"
                     f"Сколько денег потратили?"
                 ),
                 reply_markup=transaction_main_kb(not_today),
             )
+            await state.update_data({"last_msg": msg.message_id})
+
+            await state.update_data(
+                {
+                    "group": default_group,
+                    "summ": "",
+                    "category": "",
+                    "descr": "",
+                    "balance": float(balance),
+                    "user_state": "",
+                    "last_msg": msg.message_id,
+                    "not_changed_msg": msg.message_id - 1,
+                }
+            )
+
             await state.set_state(UserState.transaction_summ)
         else:
-            await callback.message.edit_text(
+            msg = await callback.message.edit_text(
                 text=(
                     "🤕 Произошла ошибка при записи транзакции. Мы скоро все исправим!"
                 ),
             )
+            await state.update_data({"last_msg": msg.message_id})
             await state.set_state(UserState.transaction_summ)
 
     except Exception as ex:
         logger.error(f"Ошибка при записи транзакции в БД: {ex}")
-        await callback.message.answer(
+        msg = await callback.message.answer(
             "🤕 Произошла ошибка при записи транзакции. Мы скоро все исправим!"
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(UserState.change_transaction_category, Text("back"))
@@ -924,10 +1064,11 @@ async def callback_change_unwritten_category(
         logger.debug("UserState:save_transaction")
         await state.set_state(UserState.change_transaction_details)
 
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             text="Что будем менять?",
             reply_markup=change_transaction_details_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
 
     elif (
         user_state == "UserState:update_transaction"
@@ -939,14 +1080,16 @@ async def callback_change_unwritten_category(
 
         await state.set_state(UserState.change_success_transaction_details)
 
-        await callback.message.edit_text(
+        msg = await callback.message.edit_text(
             text="Что будем менять?",
             reply_markup=change_transaction_details_kb(),
         )
+        await state.update_data({"last_msg": msg.message_id})
 
     else:
         logger.debug("else")
         transaction_id = callback.data.split("-")[1]
+        transaction_update_msg = int(callback.data.split("-")[2])
         transaction = db_get_transaction(int(transaction_id), callback.message.chat.id)
         if transaction:
             amount = float(transaction.get("amount"))
@@ -972,7 +1115,10 @@ async def callback_change_unwritten_category(
                     },
                 }
             )
-
+            user_dd = await state.get_data()
+            logger.debug(f"user data - {user_dd}")
+            msg_change_id = user_dd["not_changed_msg"]
+            last_msg = user_dd["last_msg"]
             text = (
                 f"Выбрана операция\n\n"
                 f"*Дата операции: {transaction_date}*\n"
@@ -980,16 +1126,42 @@ async def callback_change_unwritten_category(
                 f'Описание: {transaction["description"]}\n\n'
             )
 
-            await callback.message.answer(
-                text=f"{text}Что будем менять?",
-                reply_markup=change_success_transaction_details_kb(),
-            )
+            for msg_id in range(msg_change_id + 1, last_msg + 1):
+                try:
+                    await bot.delete_message(
+                        chat_id=callback.message.chat.id, message_id=msg_id
+                    )
+                except TelegramBadRequest:
+                    pass
 
+            if transaction_update_msg < msg_change_id + 1:
+                try:
+                    await bot.delete_message(
+                        chat_id=callback.message.chat.id,
+                        message_id=transaction_update_msg,
+                    )
+                except TelegramBadRequest:
+                    pass
+                msg = await callback.message.answer(
+                    text=f"{text}Что будем менять?",
+                    reply_markup=change_success_transaction_details_kb(),
+                )
+                await state.update_data(
+                    {"last_msg": msg.message_id + 1, "del_early_msg": True}
+                )
+
+            else:
+                msg = await callback.message.edit_text(
+                    text=f"{text}Что будем менять?",
+                    reply_markup=change_success_transaction_details_kb(),
+                )
+                await state.update_data({"last_msg": msg.message_id})
             await state.set_state(UserState.change_success_transaction_details)
         else:
-            await callback.message.answer(
+            msg = await callback.message.answer(
                 text="Операция уже удалена или не существует",
             )
+            await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(
@@ -1015,9 +1187,10 @@ async def callback_change_unwritten_category(
     elif user_state == "UserState:change_transaction_details":
         await state.set_state(UserState.change_transaction_details_summ)
 
-    await callback.message.edit_text(
+    msg = await callback.message.edit_text(
         text="Введите новую сумму",
     )
+    await state.update_data({"last_msg": msg.message_id})
 
 
 @router.message(
@@ -1057,7 +1230,7 @@ async def transaction_category(message: Message, state: FSMContext):
 
     except Exception as ex:
         logger.error(f"Что-то пошло не так при проверке: {ex}")
-        await message.answer(
+        msg = await message.answer(
             "🔰Ожидаю сумму операции. Нужно ввести число в формате:\n\n"
             "🔸100\n"
             "🔸100.0\n"
@@ -1067,6 +1240,7 @@ async def transaction_category(message: Message, state: FSMContext):
             "Также можно ввести сумму для калькулятора в формате:\n"
             "🔹100+100,0+..",
         )
+        await state.update_data({"last_msg": msg.message_id})
 
 
 @router.callback_query(
@@ -1082,11 +1256,14 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     logger.debug(
         f"Пользователь {callback.message.chat.id} - Уточняем новое описание операии"
     )
-    await callback.message.edit_text(
+    msg = await callback.message.edit_text(
         text="Введите описание операции",
     )
+    await state.update_data({"last_msg": msg.message_id})
 
     user_state = await state.get_state()
+
+    logger.debug(user_state)
 
     if user_state == "UserState:change_success_transaction_details":
         await state.set_state(UserState.change_success_transaction_details_descr)
