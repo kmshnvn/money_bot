@@ -9,9 +9,15 @@ services:
       - "python"
       - "__main__.py"
     restart: always
+#    logging:
+#      driver: loki
+#      options:
+#        loki-url: http://host.docker.internal:3100/loki/api/v1/push
     depends_on:
       - redis
       - db
+#      - grafana
+#      - loki
   redis:
     build:
       context: .
@@ -30,6 +36,16 @@ services:
     restart: on-failure
     ports:
       - "5432:5432"
+
+#  grafana:
+#    image: grafana/grafana:latest
+#    ports:
+#      - "3000:3000"
+##
+#  loki:
+#    image: grafana/loki:latest
+#    ports:
+#      - "3100:3100"
 
 volumes:
   pgdata:
