@@ -647,6 +647,13 @@ async def delete_success_category_from_transacsions(
 ) -> None:
     """ """
     logger.info("delete_success_category_from_transacsions")
+
+    data = await state.get_data()
+    category_group = data["group"]
+    category_list = data[category_group][:-1]
+
+    await state.update_data({category_group: category_list})
+
     db_delete_category(callback_data.bar)
     await transaction_category_back(callback, state)
 
@@ -1001,7 +1008,6 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
             msg = await callback.message.answer(
                 text=(
                     f"Записываю новую *расходную операцию.*\n"
-                    f"{msg.message_id+1}"
                     f"Дата - {str_date}\n\n"
                     f"Сколько денег потратили?"
                 ),
