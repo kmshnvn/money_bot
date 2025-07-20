@@ -380,12 +380,12 @@ def change_success_transaction_details_kb() -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def exist_category_kb() -> InlineKeyboardMarkup:
+def exist_category_kb(admin: bool = False) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.add(
         InlineKeyboardButton(text="Добавить новую", callback_data="add_new_category")
     )
-    kb.add(
+    kb.row(
         InlineKeyboardButton(text="Удалить категорию", callback_data="delete_category")
     )
     kb.add(
@@ -393,7 +393,12 @@ def exist_category_kb() -> InlineKeyboardMarkup:
             text="Изменить категорию", callback_data="change_category_name"
         )
     )
-    kb.adjust(1, 2)
+    if admin:
+        kb.row(
+            InlineKeyboardButton(
+                text="Дамп", callback_data="create_dump_db"
+            )
+        )
     return kb.as_markup()
 
 

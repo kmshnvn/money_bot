@@ -1,6 +1,8 @@
 from loguru import logger
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
+
+from celery import start_scheduler
 from handlers.default_heandlers import start, echo, help
 
 from database.states import storage
@@ -13,6 +15,7 @@ async def main():
     await bot.set_my_commands(
         [BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS]
     )
+    start_scheduler()
 
     dp = Dispatcher(storage=storage)
     dp.include_routers(start.router, help.router, echo.router)

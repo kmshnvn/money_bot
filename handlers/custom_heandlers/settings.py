@@ -1,9 +1,14 @@
+import os
+
 from loguru import logger
 from aiogram.filters import Text, Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram import F
 
+from config_data.config import ADMIN_LIST, DUMP_CHANNEL
+from files.dump_file import create_db_dump
+from handlers.custom_heandlers.transaction import bot
 from handlers.default_heandlers.start import router
 
 
@@ -41,7 +46,6 @@ async def category_settings(message: Message, state: FSMContext):
 
         if not user_category:
             logger.info("Категорий нет")
-
             await message.answer(
                 text="Для быстрой настройки у меня есть стандартные категории трат, "
                 "чтобы использовать их просто нажми на кнопку 'Использовать стандартный набор'"
@@ -72,13 +76,16 @@ async def category_settings(message: Message, state: FSMContext):
                     text += "\n*Категории доходов:*\n"
                     for elem in value:
                         text += f"{elem}\n"
-
+            admin = True if message.chat.id in ADMIN_LIST else False
+            print(type(ADMIN_LIST[0]))
+            print(type(message.chat.id))
+            print(admin)
             await message.answer(
                 text=f"Настройки категорий.\n"
                 f"Сейчас у тебя установлены следующие категории:\n\n"
                 f"{text}"
                 f"\nЧто делаем?",
-                reply_markup=exist_category_kb(),
+                reply_markup=exist_category_kb(admin),
             )
     except Exception as ex:
         logger.error(f"Что-то пошло не так при настройке категорий: {ex}")
@@ -415,3 +422,23 @@ async def delete_category(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(
             "🤕 Возникла ошибка при удалении категории. Скоро меня починят"
         )
+
+
+@router.callback_query(F.data == "create_dump_db")
+async def daily_db_dump_task(callback: CallbackQuery):
+    logger.debug("daily_db_dump_task")
+    if callback.message.chat.id == ADMIN_LIST[0]:
+        dump_file = await create_db_dump()
+        if dump_file:
+            try:
+                await bot.send_document(
+                    chat_id=DUMP_CHANNEL,
+                    document=FSInputFile(dump_file),
+                    caption="Ежедневный дамп базы данных (Счёты)",
+                )
+            except Exception as ex:
+                logger.error(f"Не удалось отправить дамп базы данных\n\n{ex}")
+            finally:
+                os.remove(dump_file)
+        else:
+            logger.error("Не удалось создать дамп базы данных")

@@ -17,6 +17,12 @@ POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+DUMP_CHANNEL = os.getenv("DUMP_CHANNEL")
+ADMIN_LIST = os.getenv("ADMIN_LIST")
+if ADMIN_LIST:
+    ADMIN_LIST = [int(admin_id) for admin_id in ADMIN_LIST.strip("[]").split(",")]
+else:
+    ADMIN_LIST = []
 
 
 DEFAULT_COMMANDS = (
