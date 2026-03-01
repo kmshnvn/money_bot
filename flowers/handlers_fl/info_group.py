@@ -16,7 +16,7 @@ bot = Bot(token=BOT_TOKEN_FL)
 @app.post("/tilda-webhook")
 async def tilda_webhook(request: Request):
     data = await request.json()
-    logger.debug("WEBHOOK DATA:", data)
+    logger.debug(f"WEBHOOK DATA: {data}")
     if "test" in data:
         return {"status": "ok"}
 
