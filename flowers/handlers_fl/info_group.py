@@ -30,7 +30,7 @@ async def send_info_about_tilda_order(message: Message):
                     logger.debug(name)
                     photos: str = product["photo_link"]
                     photo_list = photos.split(" ")
-                    for photo_link in photo_list[:9]:
+                    for photo_link in photo_list[:2]:
                         async with aiohttp.ClientSession() as session:
                             async with session.get(photo_link) as response:
                                 logger.debug(response.status)
