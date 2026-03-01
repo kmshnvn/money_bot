@@ -18,7 +18,7 @@ def main_kb() -> ReplyKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
-def default_category_kb(admin) -> ReplyKeyboardMarkup:
+def default_category_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.button(text="Использовать стандартные категории")
     kb.button(text="Свои категории")
