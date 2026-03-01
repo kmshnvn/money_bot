@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: buildfiles/Dockerfile
-    command: ["python", "flowers/main_flowers.py"]
+    command: ["python", "flowers/main_flower.py"]
     restart: always
     depends_on:
       - redis
