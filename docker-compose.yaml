@@ -12,6 +12,8 @@ services:
     depends_on:
       - redis
       - db
+    ports:
+      - "8000:8000"
 
   flowers:
     build:
