@@ -8,9 +8,11 @@ from flowers.handlers_fl import start
 
 
 async def main():
-    bot = Bot(token=BOT_TOKEN_FL, parse_mode="MarkdownV2")
+    bot = Bot(token=BOT_TOKEN_FL)
 
-    await bot.set_my_commands([BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS_FL])
+    await bot.set_my_commands(
+        [BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS_FL]
+    )
 
     dp = Dispatcher(storage=storage_fl)
     dp.include_routers(start.router)

@@ -7,6 +7,7 @@ from flowers.config import ADMIN_LIST_FL
 from flowers.database import first_create
 from flowers.database.model import User
 from flowers.database.static_models import UserRole
+from flowers.keyboards.main_kb import refresh_instruction_kb
 
 router = Router()
 
@@ -35,11 +36,21 @@ async def bot_start(message: Message) -> None:
             telegram_id=telegram_id,
             first_name=first_name,
             second_name=second_name,
-            user_role=UserRole.ADMINISTRATOR if telegram_id in ADMIN_LIST_FL else UserRole.USER,
+            user_role=UserRole.ADMINISTRATOR
+            if telegram_id in ADMIN_LIST_FL
+            else UserRole.USER,
         )
         logger.info("Создал БД пользователя")
 
     if telegram_id in ADMIN_LIST_FL:
-        await message.answer("Меню Администратора")
+        await message.answer(
+            text=(
+                "Привет, в данный момент можно только обновить список товаров и их фотографии из Tilda.\n"
+                "Для этого отправь файл в формате csv"
+            ),
+            reply_markup=refresh_instruction_kb(),
+        )
     else:
-        await message.answer("Привет, в данный момент бот находится в разработке и используется администраторами")
+        await message.answer(
+            "Привет, в данный момент бот находится в разработке и используется администраторами"
+        )

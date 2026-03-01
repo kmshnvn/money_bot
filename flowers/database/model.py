@@ -1,7 +1,15 @@
 from datetime import datetime
 
-from peewee import Model, PostgresqlDatabase, DateTimeField, BigIntegerField, CharField, TextField, IntegerField, \
-    ForeignKeyField
+from peewee import (
+    Model,
+    PostgresqlDatabase,
+    DateTimeField,
+    BigIntegerField,
+    CharField,
+    TextField,
+    IntegerField,
+    ForeignKeyField,
+)
 
 from flowers.config import (
     POSTGRES_DATABASE_FL,
@@ -46,7 +54,9 @@ class User(TimestampedModel):
     """Модель пользователя, включающая поля для хранения информации о нем."""
 
     telegram_id = BigIntegerField(null=False, unique=True, verbose_name="Телеграм ID")
-    username = CharField(max_length=32, null=True, unique=False, verbose_name="Имя пользователя")
+    username = CharField(
+        max_length=32, null=True, unique=False, verbose_name="Имя пользователя"
+    )
     first_name = TextField(null=True, unique=False, verbose_name="Имя")
     second_name = TextField(null=True, unique=False, verbose_name="Фамилия")
     user_role = IntegerField(default=UserRole.USER, verbose_name="Роль пользователя")
@@ -72,7 +82,7 @@ class Customer(TimestampedModel):
 class TildaProducts(TimestampedModel):
     """Модель контрагентов, на которых оформляются заказы"""
 
-    external_id = BigIntegerField(null=False, unique=True, verbose_name="External ID Tilda")
+    external_id = CharField(null=False, unique=True, verbose_name="External ID Tilda")
     product_name = CharField(max_length=255, null=True, verbose_name="Название товара")
     photo_link = TextField(null=True, verbose_name="Ссылка на фото")
 

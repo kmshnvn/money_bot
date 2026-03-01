@@ -17,7 +17,7 @@ POSTGRES_PORT_FL = os.getenv("POSTGRES_PORT_FL")
 POSTGRES_HOST_FL = os.getenv("POSTGRES_HOST_FL")
 
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-DUMP_CHANNEL = os.getenv("DUMP_CHANNEL")
+INFO_CHANNEL = os.getenv("INFO_CHANNEL")
 ADMIN_LIST_FL = os.getenv("ADMIN_LIST_FL")
 if ADMIN_LIST_FL:
     ADMIN_LIST_FL = [int(admin_id) for admin_id in ADMIN_LIST_FL.strip("[]").split(",")]
@@ -25,6 +25,4 @@ else:
     ADMIN_LIST_FL = []
 
 
-DEFAULT_COMMANDS_FL = (
-    ("start", "Главное меню"),
-)
+DEFAULT_COMMANDS_FL = (("start", "Главное меню"),)
