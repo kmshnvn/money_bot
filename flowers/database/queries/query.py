@@ -22,8 +22,13 @@ def add_products_from_tilda_to_db(product_dict: list) -> None:
                 product.save()
 
 
-def get_all_products_from_db():
+def get_all_products_from_db(external_id: str):
     logger.debug("get_all_products_from_db")
-    query = TildaProducts.select().dicts().execute()
+    query = (
+        TildaProducts.select()
+        .where(TildaProducts.external_id == external_id)
+        .dicts()
+        .execute()
+    )
 
-    return query
+    return [elem for elem in query][0]

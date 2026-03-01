@@ -6,8 +6,8 @@ authors = ["Kamyshin Ivan <ikamyshin@yandex.ru>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-aiogram = "3.0.0b7"
+python = "^3.11"
+aiogram = "^3.22.0"
 redis = "^4.6.0"
 python-dotenv = "^1.0.0"
 peewee = "^3.16.2"
@@ -22,6 +22,8 @@ celery = "^5.3.6"
 plotly = "^5.18.0"
 kaleido = "0.2.1"
 apscheduler = "^3.11.0"
+fastapi = "^0.135.0"
+uvicorn = "^0.41.0"
 
 
 [build-system]
