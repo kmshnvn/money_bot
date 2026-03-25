@@ -31,6 +31,8 @@ async def parse_tilda_webhook_data(data: dict) -> dict:
     products = data.get("payment").get("products")
 
     for product in products:
+        logger.debug(f"product - {product}")
+
         product_dict[product["externalid"]] = {"name": product["name"]}
     return product_dict
     # Заказ №[‘payment’][‘orderid’]
