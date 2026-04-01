@@ -1,3 +1,4 @@
+from aiogram.client.default import DefaultBotProperties
 from loguru import logger
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -10,7 +11,7 @@ from config_data.config import BOT_TOKEN, DEFAULT_COMMANDS
 
 
 async def main():
-    bot = Bot(token=BOT_TOKEN, parse_mode="Markdown")
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
 
     await bot.set_my_commands(
         [BotCommand(command=i[0], description=i[1]) for i in DEFAULT_COMMANDS]

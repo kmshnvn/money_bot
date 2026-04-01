@@ -1,6 +1,7 @@
 from datetime import date, timedelta, datetime
 import re
 
+from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramBadRequest
 from fuzzywuzzy import fuzz
 from loguru import logger
@@ -107,7 +108,7 @@ async def check_change_transaction(user_data: dict):
     return transaction_dict
 
 
-bot = Bot(token=BOT_TOKEN, parse_mode="Markdown")
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
 
 
 @router.message(F.text.contains("Новая операция"))
