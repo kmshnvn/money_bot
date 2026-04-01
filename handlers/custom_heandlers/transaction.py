@@ -4,7 +4,7 @@ import re
 from aiogram.exceptions import TelegramBadRequest
 from fuzzywuzzy import fuzz
 from loguru import logger
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram import F, Bot
@@ -185,19 +185,19 @@ async def new_transaction(message: Message, state: FSMContext):
 
 @router.callback_query(
     UserState.transaction_summ,
-    Text(
-        text=[
+    F.data.in_(
+        {
             "income",
             "expense",
             "change_for_today_date",
             "change_for_yesterday_date",
             "change_for_next_date",
             "change_for_past_date",
-        ]
+        }
     ),
 )
-@router.callback_query(UserState.transaction_category, Text("back"))
-@router.callback_query(Text("new_transaction_callback"))
+@router.callback_query(UserState.transaction_category, F.data == "back")
+@router.callback_query(F.data == "new_transaction_callback")
 async def transaction_summ(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик для уточнения суммы операции.
@@ -281,12 +281,12 @@ async def transaction_summ(callback: CallbackQuery, state: FSMContext):
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.transaction_summ, Text("change_transaction_date"))
+@router.callback_query(UserState.transaction_summ, F.data == "change_transaction_date")
 @router.callback_query(
-    UserState.change_transaction_details, Text("change_transaction_date")
+    UserState.change_transaction_details, F.data == "change_transaction_date"
 )
 @router.callback_query(
-    UserState.change_success_transaction_details, Text("change_transaction_date")
+    UserState.change_success_transaction_details, F.data == "change_transaction_date"
 )
 async def transaction_user_date(callback: CallbackQuery, state: FSMContext):
     """
@@ -411,15 +411,18 @@ async def transaction_category(message: Message, state: FSMContext):
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.transaction_new_category, Text("back"))
-@router.callback_query(UserState.transaction_description, Text("back"))
+@router.callback_query(UserState.transaction_new_category, F.data == "back")
+@router.callback_query(UserState.transaction_description, F.data == "back")
 @router.callback_query(
-    UserState.change_transaction_details, Text("change_transaction_category")
+    UserState.change_transaction_details, F.data == "change_transaction_category"
 )
 @router.callback_query(
-    UserState.change_success_transaction_details, Text("change_transaction_category")
+    UserState.change_success_transaction_details,
+    F.data == "change_transaction_category",
 )
-@router.callback_query(UserState.transaction_category, Text(text=["income", "expense"]))
+@router.callback_query(
+    UserState.transaction_category, F.data.in_({"income", "expense"})
+)
 async def transaction_category_back(callback: CallbackQuery, state: FSMContext):
     """
     Функция. Проверяем вводимое число пользователя и уточняем категорию операции.
@@ -553,10 +556,10 @@ async def transaction_description(message: Message, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.transaction_category, Text(startswith="transaction_category:")
+    UserState.transaction_category, F.data.startswith("transaction_category:")
 )
 @router.callback_query(
-    UserState.change_transaction_category, Text(startswith="transaction_category:")
+    UserState.change_transaction_category, F.data.startswith("transaction_category:")
 )
 async def transaction_callback_description(callback: CallbackQuery, state: FSMContext):
     """
@@ -595,7 +598,7 @@ async def transaction_callback_description(callback: CallbackQuery, state: FSMCo
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.transaction_new_category, Text("add_category"))
+@router.callback_query(UserState.transaction_new_category, F.data == "add_category")
 async def transaction_new_category(callback: CallbackQuery, state: FSMContext):
     """
     Запись новой категории операции и переход к уточнению описания.
@@ -659,7 +662,7 @@ async def delete_success_category_from_transacsions(
 
 
 @router.callback_query(UserState.transaction_description)
-@router.callback_query(UserState.change_transaction_details, Text("back"))
+@router.callback_query(UserState.change_transaction_details, F.data == "back")
 async def callback_transaction_check(callback: CallbackQuery, state: FSMContext):
     """
     Проверка операции перед сохранением.
@@ -721,7 +724,7 @@ async def change_success_transaction_check(message: Message, state: FSMContext):
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.change_success_transaction_details, Text("back"))
+@router.callback_query(UserState.change_success_transaction_details, F.data == "back")
 async def callback_change_success_transaction_check(
     callback: CallbackQuery, state: FSMContext
 ):
@@ -826,7 +829,7 @@ async def transaction_check(message: Message, state: FSMContext):
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.update_transaction, Text("update_transaction"))
+@router.callback_query(UserState.update_transaction, F.data == "update_transaction")
 async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Функция обновления транзакции в БД.
@@ -945,7 +948,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         )
 
 
-@router.callback_query(UserState.save_transaction, Text("add_transaction"))
+@router.callback_query(UserState.save_transaction, F.data == "add_transaction")
 async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Запись новой транзакции в базу данных.
@@ -1046,11 +1049,11 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
         await state.update_data({"last_msg": msg.message_id})
 
 
-@router.callback_query(UserState.change_transaction_category, Text("back"))
-@router.callback_query(UserState.save_transaction, Text("change_transaction"))
-@router.callback_query(UserState.update_transaction, Text("change_transaction"))
+@router.callback_query(UserState.change_transaction_category, F.data == "back")
+@router.callback_query(UserState.save_transaction, F.data == "change_transaction")
+@router.callback_query(UserState.update_transaction, F.data == "change_transaction")
 @router.callback_query(
-    UserState.transaction_summ, Text(startswith="change_success_transaction")
+    UserState.transaction_summ, F.data.startswith("change_success_transaction")
 )
 async def callback_change_unwritten_category(
     callback: CallbackQuery, state: FSMContext
@@ -1171,10 +1174,10 @@ async def callback_change_unwritten_category(
 
 
 @router.callback_query(
-    UserState.change_transaction_details, Text("change_transaction_summ")
+    UserState.change_transaction_details, F.data == "change_transaction_summ"
 )
 @router.callback_query(
-    UserState.change_success_transaction_details, Text("change_transaction_summ")
+    UserState.change_success_transaction_details, F.data == "change_transaction_summ"
 )
 async def callback_change_unwritten_category(
     callback: CallbackQuery, state: FSMContext
@@ -1250,10 +1253,10 @@ async def transaction_category(message: Message, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.change_transaction_details, Text("change_transaction_descr")
+    UserState.change_transaction_details, F.data == "change_transaction_descr"
 )
 @router.callback_query(
-    UserState.change_success_transaction_details, Text("change_transaction_descr")
+    UserState.change_success_transaction_details, F.data == "change_transaction_descr"
 )
 async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     """

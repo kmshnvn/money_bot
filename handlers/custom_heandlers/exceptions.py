@@ -1,4 +1,4 @@
-from aiogram.filters import Text
+from aiogram import F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
@@ -41,8 +41,8 @@ async def transaction_category_ex(message: Message, state: FSMContext):
     )
 
 
-@router.callback_query(Text(startswith="change_success_transaction"))
-async def transaction_category_ex(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.startswith("change_success_transaction"))
+async def transaction_category_ex(callback: CallbackQuery):
     """
     Функция. Отлавливает кнопку от пользователя и дает ему инстуркцию, что нужно сделать
     """

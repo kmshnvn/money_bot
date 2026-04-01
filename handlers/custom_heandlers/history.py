@@ -6,7 +6,7 @@ from aiogram import F
 from aiogram.exceptions import TelegramBadRequest
 from dateutil.relativedelta import relativedelta
 from loguru import logger
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
@@ -20,7 +20,6 @@ from database.database import (
     db_get_first_date_transaction,
     db_get_all_date_transaction,
     db_get_all_transactions_by_day,
-    db_get_all_month_transaction,
     db_get_category_transaction_by_date,
 )
 from functions import simple_cal_callback, SimpleCalendar
@@ -79,8 +78,8 @@ async def history(message: Message, state: FSMContext) -> None:
         )
 
 
-@router.callback_query(Text("back_to_main_history"))
-@router.callback_query(Text("main_history_menu"))
+@router.callback_query(F.data == "back_to_main_history")
+@router.callback_query(F.data == "main_history_menu")
 async def callback_history(callback: CallbackQuery, state: FSMContext) -> None:
     try:
         logger.info(f"{callback.message.chat.id} - history.py | возврат в меню history")
@@ -113,10 +112,16 @@ async def callback_history(callback: CallbackQuery, state: FSMContext) -> None:
         )
 
 
-@router.callback_query(Text("history_of_transactions"))
-@router.callback_query(UserState.transaction_history, Text("change_for_past_history"))
-@router.callback_query(UserState.transaction_history, Text("change_for_next_history"))
-@router.callback_query(UserState.transaction_history, Text("last_transaction_history"))
+@router.callback_query(F.data == "history_of_transactions")
+@router.callback_query(
+    UserState.transaction_history, F.data == "change_for_past_history"
+)
+@router.callback_query(
+    UserState.transaction_history, F.data == "change_for_next_history"
+)
+@router.callback_query(
+    UserState.transaction_history, F.data == "last_transaction_history"
+)
 async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Вывод истории транзакций пользователя
@@ -194,12 +199,12 @@ async def user_transaction_history(callback: CallbackQuery, state: FSMContext) -
         )
 
 
-@router.callback_query(UserState.transaction_history, Text("show_day_history"))
+@router.callback_query(UserState.transaction_history, F.data == "show_day_history")
 @router.callback_query(
-    UserState.transaction_history, Text("change_for_past_day_history")
+    UserState.transaction_history, F.data == "change_for_past_day_history"
 )
 @router.callback_query(
-    UserState.transaction_history, Text("change_for_next_day_history")
+    UserState.transaction_history, F.data == "change_for_next_day_history"
 )
 async def user_transaction_history_by_day(
     callback: CallbackQuery, state: FSMContext
@@ -303,7 +308,7 @@ async def check_delete_transaction(message: Message, state: FSMContext) -> None:
         )
 
 
-@router.callback_query(Text(startswith="delete_success_transaction"))
+@router.callback_query(F.data.startswith("delete_success_transaction"))
 async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
     """
     Удаление операции через callback кнопку
@@ -358,7 +363,7 @@ async def callback_change_descr(callback: CallbackQuery, state: FSMContext):
         )
 
 
-@router.callback_query(Text("delete_transaction"))
+@router.callback_query(F.data == "delete_transaction")
 async def delete_transaction(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Обработчик подтверждения удаления операции.
@@ -395,7 +400,7 @@ async def delete_transaction(callback: CallbackQuery, state: FSMContext) -> None
         )
 
 
-@router.callback_query(Text("user_statistic"))
+@router.callback_query(F.data == "user_statistic")
 async def month_statistic(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Обработчик команды "Статистика".
@@ -428,7 +433,7 @@ async def month_statistic(callback: CallbackQuery, state: FSMContext) -> None:
         )
 
 
-@router.callback_query(Text("change_date"))
+@router.callback_query(F.data == "change_date")
 async def date_statistic(callback: CallbackQuery, state: FSMContext) -> None:
     """
     Обработчик команды выбора даты для статистики.
@@ -607,8 +612,8 @@ async def month_custom_date_statistic(message: Message, state: FSMContext) -> No
         )
 
 
-@router.callback_query(Text(["show_category_history"]))
-@router.callback_query(Text(["back_to_category_history"]))
+@router.callback_query(F.data == "show_category_history")
+@router.callback_query(F.data == "back_to_category_history")
 async def category_history_statistic(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
@@ -680,7 +685,7 @@ async def show_category_transactions(
     )
 
 
-@router.callback_query(Text("show_graphics"))
+@router.callback_query(F.data == "show_graphics")
 async def show_graphics(callback: CallbackQuery, state: FSMContext) -> None:
     begin_history, end_history = create_date(await state.get_data())
 
@@ -706,15 +711,15 @@ async def show_graphics(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(
-    Text(
-        [
+    F.data.in_(
+        {
             "change_date_all_history",
             "change_date_current_month",
             "change_date_three_month",
             "change_for_past_month",
             "change_for_next_month",
             "back_to_user_month_statistics",
-        ]
+        }
     )
 )
 async def callback_change_date_of_static(

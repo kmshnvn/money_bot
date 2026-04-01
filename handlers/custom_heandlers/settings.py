@@ -1,7 +1,7 @@
 import os
 
 from loguru import logger
-from aiogram.filters import Text, Command
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram import F
@@ -94,7 +94,7 @@ async def category_settings(message: Message, state: FSMContext):
         )
 
 
-@router.callback_query(Text("back_to_main_settings"))
+@router.callback_query(F.data == "back_to_main_settings")
 async def category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработка команды /Setting для настройки категорий трат пользователя.
@@ -176,8 +176,8 @@ async def default_category_settings(message: Message, state: FSMContext):
         )
 
 
-@router.callback_query(UserState.settings, Text("add_new_category"))
-@router.callback_query(UserState.save_category, Text("change_transaction"))
+@router.callback_query(UserState.settings, F.data == "add_new_category")
+@router.callback_query(UserState.save_category, F.data == "change_transaction")
 async def custom_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработка начала настройки своих категорий трат. Пользователь выбирает группу категории.
@@ -198,7 +198,7 @@ async def custom_category_settings(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.custom_category_group, Text(text=["income", "expense"])
+    UserState.custom_category_group, F.data.in_({"income", "expense"})
 )
 async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
@@ -275,7 +275,7 @@ async def add_new_category_settings(message: Message, state: FSMContext):
         )
 
 
-@router.callback_query(UserState.save_category, Text("add_transaction"))
+@router.callback_query(UserState.save_category, F.data == "add_transaction")
 async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
     """
     Обработчик сохранения новой пользовательской категории в базе данных.
@@ -313,7 +313,7 @@ async def add_new_category_settings(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.settings, Text(["delete_category", "change_category_name"])
+    UserState.settings, F.data.in_({"delete_category", "change_category_name"})
 )
 async def default_category_settings(callback: CallbackQuery, state: FSMContext):
     """
@@ -346,7 +346,7 @@ async def default_category_settings(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.rename_category, Text(startswith="transaction_category:")
+    UserState.rename_category, F.data.startswith("transaction_category:")
 )
 async def default_category_settings(callback: CallbackQuery, state: FSMContext):
     """
@@ -398,7 +398,7 @@ async def default_category_settings(message: Message, state: FSMContext):
 
 
 @router.callback_query(
-    UserState.delete_category, Text(startswith="transaction_category:")
+    UserState.delete_category, F.data.startswith("transaction_category:")
 )
 async def delete_category(callback: CallbackQuery, state: FSMContext):
     """
