@@ -6,7 +6,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y postgresql-client
 
-RUN pip install --upgrade pip "poetry==1.5.1"
+RUN pip install --upgrade pip "poetry==2.2.1"
 RUN poetry config virtualenvs.create false
 COPY pyproject.toml poetry.lock ./
 RUN poetry install
