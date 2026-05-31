@@ -8,10 +8,11 @@ services:
     command:
       - "python"
       - "__main__.py"
+    env_file:
+      - .env
     restart: always
-    depends_on:
-      - redis
-      - db
+    networks:
+      - shared_infra
 
   flowers:
     build:
@@ -20,32 +21,13 @@ services:
     command:
       - "python"
       - "main_flower.py"
-    restart: always
-    depends_on:
-      - redis
-      - db
-    ports:
-      - "8000:8000"
-
-  redis:
-    build:
-      context: .
-      dockerfile: buildfiles/RedisDockerfile
-    restart: always
-    ports:
-      - "6379:6379"
-
-  db:
-    image: postgres:15-alpine
     env_file:
       - .env
-    environment:
-      - POSTGRES_HOST_AUTH_METHOD=trust
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     restart: always
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    networks:
+      - shared_infra
 
   nginx:
     image: nginx:stable-alpine
@@ -58,6 +40,9 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - flowers
+    networks:
+      - shared_infra
 
-volumes:
-  pgdata:
+networks:
+  shared_infra:
+    external: true

@@ -17,6 +17,9 @@ POSTGRES_PORT_FL = os.getenv("POSTGRES_PORT_FL")
 POSTGRES_HOST_FL = os.getenv("POSTGRES_HOST_FL")
 
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB_FL = int(os.getenv("REDIS_DB_FL", "5"))
 INFO_CHANNEL = os.getenv("INFO_CHANNEL")
 ADMIN_LIST_FL = os.getenv("ADMIN_LIST_FL")
 if ADMIN_LIST_FL:

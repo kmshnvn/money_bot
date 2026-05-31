@@ -2,12 +2,12 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.redis import RedisStorage
 from redis.asyncio.client import Redis
 
-from config_data.config import REDIS_PASSWORD
+from config_data.config import REDIS_PASSWORD, REDIS_HOST, REDIS_PORT, REDIS_DB
 
 redis = Redis(
-    db=3,
-    host="redis",
-    port=6379,
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
     password=REDIS_PASSWORD,
 )
 
