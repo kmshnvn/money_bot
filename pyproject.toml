@@ -22,8 +22,6 @@ celery = "^5.3.6"
 plotly = "^5.18.0"
 kaleido = "0.2.1"
 apscheduler = "^3.11.0"
-fastapi = "^0.135.0"
-uvicorn = "^0.41.0"
 
 
 [build-system]
